@@ -1,6 +1,7 @@
 """Sync-Logik: Cookidoo lesen → mit Keep mergen → klassifizieren → sortiert schreiben."""
 from __future__ import annotations
 
+import asyncio
 import logging
 
 from homeassistant.core import HomeAssistant
@@ -210,30 +211,53 @@ async def async_run_sync(hass: HomeAssistant, entry_id: str) -> dict:
         idx = cat_index.get(category, cat_index[UNKNOWN])
         classified.append((idx, category, original))
     classified.sort(key=lambda x: (x[0], x[2].lower()))
+    desired_summaries = [original for _, _, original in classified]
 
-    # Phase 4: nur die OFFENEN Keep-Items löschen, dann sortiert neu adden
-    for it in keep_items:
-        if _is_open(it) and it.get("summary"):
-            await async_remove_item(hass, keep_entity, it["summary"])
+    # Phase 4: Skip-Check — wenn Keep bereits exakt diese Liste in dieser
+    # Reihenfolge zeigt UND keine offenen Cookidoo-Items rumliegen, ist nichts zu tun.
+    current_open_keep = [
+        (it.get("summary") or "").strip()
+        for it in keep_items
+        if _is_open(it) and it.get("summary")
+    ]
+    keep_aligned = [s.lower() for s in current_open_keep] == [
+        s.lower() for s in desired_summaries
+    ]
+    nothing_to_do = keep_aligned and not cookidoo_originals
 
     added: list[tuple[str, str]] = []
     completed_in_cookidoo: list[str] = []
-    for _, category, original in classified:
-        await async_add_item(hass, keep_entity, original)
-        added.append((category, original))
-        # Wenn das Item aus Cookidoo stammt: dort als erledigt markieren,
-        # damit es beim nächsten Sync nicht erneut auftaucht.
-        cookidoo_summary = cookidoo_originals.get(original.lower())
-        if cookidoo_summary:
-            await async_complete_item(hass, cookidoo_entity, cookidoo_summary)
-            completed_in_cookidoo.append(cookidoo_summary)
+
+    if nothing_to_do:
+        _LOGGER.info("Cookidoo→Keep Sync: nichts zu tun (Liste bereits aktuell)")
+    else:
+        # Phase 5a: Keep-Deletes (nur wenn Reihenfolge falsch) + Cookidoo-Completes
+        # parallel — beides reihenfolge-unabhängig.
+        delete_tasks = (
+            [async_remove_item(hass, keep_entity, s) for s in current_open_keep]
+            if not keep_aligned
+            else []
+        )
+        complete_tasks = [
+            async_complete_item(hass, cookidoo_entity, s)
+            for s in cookidoo_originals.values()
+        ]
+        if delete_tasks or complete_tasks:
+            await asyncio.gather(*delete_tasks, *complete_tasks)
+        completed_in_cookidoo = list(cookidoo_originals.values())
+
+        # Phase 5b: Adds (Keep) sequenziell — Reihenfolge muss erhalten bleiben.
+        if not keep_aligned:
+            for _, category, original in classified:
+                await async_add_item(hass, keep_entity, original)
+                added.append((category, original))
 
     if learned_new:
         learned.update(learned_new)
         await async_save_learned(hass, entry_id, learned)
 
     _LOGGER.info(
-        "Cookidoo→Keep Sync: %d sortiert geschrieben, %d in Cookidoo abgehakt, %d via LLM gelernt",
+        "Cookidoo→Keep Sync: %d sortiert, %d in Cookidoo abgehakt, %d via LLM gelernt",
         len(added), len(completed_in_cookidoo), len(learned_new),
     )
 
@@ -241,4 +265,5 @@ async def async_run_sync(hass: HomeAssistant, entry_id: str) -> dict:
         "added": added,
         "completed_in_cookidoo": completed_in_cookidoo,
         "learned": learned_new,
+        "skipped_no_changes": nothing_to_do,
     }
