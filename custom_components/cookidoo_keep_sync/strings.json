@@ -1,0 +1,65 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Cookidoo → Google Keep Sync",
+        "description": "Wähle die Quell- und Ziel-Listen sowie optional einen Conversation-Agent (z.B. Claude) für die Bulk-Klassifikation unbekannter Items. Die Integration legt zusätzlich automatisch eine Todo-Liste 'Cookidoo Keep Kategorien' an, deren Reihenfolge die Markt-Sortierung definiert.",
+        "data": {
+          "cookidoo_entity": "Cookidoo Einkaufsliste (Quelle)",
+          "keep_entity": "Google Keep Liste (Ziel)",
+          "conversation_agent": "Conversation Agent (z.B. Claude)",
+          "use_llm": "LLM-Fallback aktivieren"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "Diese Kombination aus Quell- und Ziel-Liste ist bereits konfiguriert."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Cookidoo → Keep Optionen",
+        "menu_options": {
+          "entities": "Listen & Agent",
+          "keywords": "Keyword-Mappings",
+          "advanced": "Erweitert"
+        }
+      },
+      "entities": {
+        "title": "Listen & Agent",
+        "description": "Lass 'Kategorien-Liste (Override)' leer, um die automatisch angelegte Liste 'Cookidoo Keep Kategorien' zu verwenden.",
+        "data": {
+          "cookidoo_entity": "Cookidoo Einkaufsliste (Quelle)",
+          "keep_entity": "Google Keep Liste (Ziel)",
+          "categories_entity": "Kategorien-Liste (Override, optional)",
+          "conversation_agent": "Conversation Agent",
+          "use_llm": "LLM-Fallback aktivieren"
+        }
+      },
+      "keywords": {
+        "title": "Keyword → Kategorie",
+        "description": "Format pro Zeile: 'keyword = Kategoriename'. Keywords werden case-insensitive als Substring im Item-Namen gesucht (längstes Keyword gewinnt). Zeilen mit '#' werden ignoriert. Der Kategoriename muss exakt einer Kategorie aus deiner Kategorien-Todo-Liste entsprechen.",
+        "data": {
+          "text": "Mappings"
+        }
+      },
+      "advanced": {
+        "title": "Erweitert",
+        "data": {
+          "clear_before_sync": "Keep-Liste vor jedem Sync komplett leeren"
+        }
+      }
+    }
+  },
+  "services": {
+    "sync": {
+      "name": "Sync Cookidoo → Keep",
+      "description": "Synchronisiert die Cookidoo-Einkaufsliste in die Google-Keep-Liste."
+    },
+    "reset_learned": {
+      "name": "Gelernte Mappings zurücksetzen",
+      "description": "Löscht den LLM-Lern-Cache."
+    }
+  }
+}

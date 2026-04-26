@@ -1,0 +1,23 @@
+sync:
+  name: Sync Cookidoo → Keep
+  description: >
+    Liest Items aus der Cookidoo-Todo-Liste, klassifiziert sie nach
+    Supermarkt-Kategorie (Keyword-Match + optional LLM-Fallback) und schreibt
+    sie sortiert in die Google-Keep-Liste.
+  fields:
+    entry_id:
+      name: Config Entry ID
+      description: Optional. Lässt mehrere Konfigurationen unterscheiden.
+      required: false
+      selector:
+        text:
+
+reset_learned:
+  name: Gelernte Mappings zurücksetzen
+  description: Löscht alle vom LLM gelernten Item→Kategorie-Mappings.
+  fields:
+    entry_id:
+      name: Config Entry ID
+      required: false
+      selector:
+        text:

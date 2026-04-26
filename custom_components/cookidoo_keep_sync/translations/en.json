@@ -1,0 +1,65 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Cookidoo → Google Keep Sync",
+        "description": "Select source and target lists and optionally a conversation agent (e.g. Claude) for bulk classification of unknown items. The integration will automatically create a todo list 'Cookidoo Keep Categories' whose order defines the supermarket sort order.",
+        "data": {
+          "cookidoo_entity": "Cookidoo shopping list (source)",
+          "keep_entity": "Google Keep list (target)",
+          "conversation_agent": "Conversation agent (e.g. Claude)",
+          "use_llm": "Enable LLM fallback"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "This source/target combination is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Cookidoo → Keep options",
+        "menu_options": {
+          "entities": "Lists & agent",
+          "keywords": "Keyword mappings",
+          "advanced": "Advanced"
+        }
+      },
+      "entities": {
+        "title": "Lists & agent",
+        "description": "Leave 'Categories list (override)' empty to use the auto-created 'Cookidoo Keep Categories' list.",
+        "data": {
+          "cookidoo_entity": "Cookidoo shopping list (source)",
+          "keep_entity": "Google Keep list (target)",
+          "categories_entity": "Categories list (override, optional)",
+          "conversation_agent": "Conversation agent",
+          "use_llm": "Enable LLM fallback"
+        }
+      },
+      "keywords": {
+        "title": "Keyword → category",
+        "description": "Format per line: 'keyword = Category name'. Keywords match case-insensitively as substrings of the item name (longest match wins). Lines starting with '#' are ignored.",
+        "data": {
+          "text": "Mappings"
+        }
+      },
+      "advanced": {
+        "title": "Advanced",
+        "data": {
+          "clear_before_sync": "Clear the Keep list before each sync"
+        }
+      }
+    }
+  },
+  "services": {
+    "sync": {
+      "name": "Sync Cookidoo → Keep",
+      "description": "Sync the Cookidoo shopping list to the Google Keep list."
+    },
+    "reset_learned": {
+      "name": "Reset learned mappings",
+      "description": "Clears the LLM-learned cache."
+    }
+  }
+}

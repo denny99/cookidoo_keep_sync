@@ -1,0 +1,12 @@
+{
+  "domain": "cookidoo_keep_sync",
+  "name": "Cookidoo → Google Keep Sync",
+  "version": "0.1.0",
+  "config_flow": true,
+  "documentation": "https://github.com/denny99/cookidoo_keep_sync",
+  "issue_tracker": "https://github.com/denny99/cookidoo_keep_sync/issues",
+  "codeowners": ["@denny99"],
+  "iot_class": "local_polling",
+  "dependencies": ["todo", "conversation"],
+  "requirements": []
+}
