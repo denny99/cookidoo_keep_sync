@@ -41,11 +41,11 @@ def _multiline() -> TextSelector:
     return TextSelector(TextSelectorConfig(multiline=True, type=TextSelectorType.TEXT))
 
 
-def _keywords_to_text(kw: dict[str, str]) -> str:
-    return "\n".join(f"{k} = {v}" for k, v in sorted(kw.items()))
+def _mapping_to_text(d: dict[str, str]) -> str:
+    return "\n".join(f"{k} = {v}" for k, v in sorted(d.items()))
 
 
-def _text_to_keywords(text: str) -> dict[str, str]:
+def _text_to_mapping(text: str) -> dict[str, str]:
     out: dict[str, str] = {}
     for line in text.splitlines():
         line = line.strip()
@@ -56,6 +56,11 @@ def _text_to_keywords(text: str) -> dict[str, str]:
         if k and v:
             out[k] = v
     return out
+
+
+# Aliases damit die alten Namen lesbar bleiben
+_keywords_to_text = _mapping_to_text
+_text_to_keywords = _text_to_mapping
 
 
 class CookidooKeepConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -108,7 +113,34 @@ class CookidooKeepOptionsFlow(OptionsFlow):
     ) -> FlowResult:
         return self.async_show_menu(
             step_id="init",
-            menu_options=["entities", "keywords", "advanced"],
+            menu_options=["entities", "keywords", "learned", "advanced"],
+        )
+
+    async def async_step_learned(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Edit den vom LLM gelernten Cache. Manuelle Einträge überschreiben
+        was die KI sich gemerkt hat, weil der Cache vor jedem Klassifikator
+        gecheckt wird."""
+        from .coordinator import async_load_learned, async_save_learned
+
+        if user_input is not None:
+            new_learned = _text_to_mapping(user_input["text"])
+            await async_save_learned(self.hass, self._entry.entry_id, new_learned)
+            return self.async_create_entry(title="", data=self._entry.options)
+
+        learned = await async_load_learned(self.hass, self._entry.entry_id)
+        schema = vol.Schema(
+            {
+                vol.Required(
+                    "text", default=_mapping_to_text(learned)
+                ): _multiline(),
+            }
+        )
+        return self.async_show_form(
+            step_id="learned",
+            data_schema=schema,
+            description_placeholders={"count": str(len(learned))},
         )
 
     async def async_step_entities(

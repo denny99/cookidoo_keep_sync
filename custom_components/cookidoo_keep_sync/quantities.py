@@ -190,5 +190,10 @@ _PARENS_TAIL_RE = re.compile(r"\s*\([^)]*\)\s*$")
 
 
 def normalize_for_dedup(summary: str) -> str:
-    s = _PARENS_TAIL_RE.sub("", summary).strip().lower()
+    s = strip_qty_parens(summary).lower()
     return re.sub(r"\s+", " ", s)
+
+
+def strip_qty_parens(summary: str) -> str:
+    """Entfernt nur den von uns angehängten '(qty)'-Teil am Ende. Case bleibt erhalten."""
+    return _PARENS_TAIL_RE.sub("", summary).strip()

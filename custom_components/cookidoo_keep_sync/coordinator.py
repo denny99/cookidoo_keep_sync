@@ -9,7 +9,7 @@ from homeassistant.helpers.storage import Store
 
 from .classifier import UNKNOWN, classify_bulk_with_llm, classify_by_keyword
 from .quantities import aggregate as aggregate_qtys
-from .quantities import normalize_for_dedup, split_name_qty
+from .quantities import normalize_for_dedup, split_name_qty, strip_qty_parens
 from .const import (
     CONF_CATEGORIES,
     CONF_CATEGORIES_ENTITY,
@@ -205,32 +205,38 @@ async def async_run_sync(hass: HomeAssistant, entry_id: str) -> dict:
     if UNKNOWN not in cat_index:
         cat_index[UNKNOWN] = len(categories)
 
+    # Klassifizierung läuft auf dem CLEAN-Namen (ohne unseren " (qty)"-Anhang),
+    # damit Cache-Keys stabil bleiben, wenn sich nur die Menge ändert.
+    clean_for: dict[str, str] = {original: strip_qty_parens(original) for original in combined}
+
     # Phase 1: Keyword-Match
     by_keyword: dict[str, str] = {}
-    unknown_items: list[str] = []
+    unknown_items: list[str] = []  # Liste der CLEAN-Namen (deduped)
     for original in combined:
-        category = classify_by_keyword(original, keywords, learned, categories)
+        clean = clean_for[original]
+        category = classify_by_keyword(clean, keywords, learned, categories)
         if category is not None:
             by_keyword[original] = category
-        else:
-            unknown_items.append(original)
+        elif clean not in unknown_items:
+            unknown_items.append(clean)
 
-    # Phase 2: ein einziger Bulk-LLM-Call
+    # Phase 2: ein einziger Bulk-LLM-Call (auf den clean names)
     llm_result: dict[str, str] = {}
     learned_new: dict[str, str] = {}
     if unknown_items and use_llm:
         llm_result = await classify_bulk_with_llm(
             hass, unknown_items, categories, agent_id
         )
-        for original, category in llm_result.items():
-            learned_new[original.lower()] = category
+        for clean, category in llm_result.items():
+            learned_new[clean.lower()] = category
 
     # Phase 3: alles zusammenführen + sortieren
     classified: list[tuple[int, str, str]] = []
     for original in combined:
+        clean = clean_for[original]
         category = (
             by_keyword.get(original)
-            or llm_result.get(original)
+            or llm_result.get(clean)
             or UNKNOWN
         )
         idx = cat_index.get(category, cat_index[UNKNOWN])

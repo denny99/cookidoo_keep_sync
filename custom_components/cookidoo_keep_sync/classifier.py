@@ -3,8 +3,10 @@ from __future__ import annotations
 
 import logging
 import re
+from typing import TYPE_CHECKING
 
-from homeassistant.core import HomeAssistant
+if TYPE_CHECKING:
+    from homeassistant.core import HomeAssistant
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -20,11 +22,18 @@ def classify_by_keyword(
     learned: dict[str, str],
     categories: list[str],
 ) -> str | None:
-    """Match item against learned + keyword dict. Returns category or None."""
+    """Match item against learned-cache, dann Keyword-Dict. Returns category or None.
+
+    Items mit Komma (Cookidoo-Varianten wie 'Paprika, edelsüß') überspringen den
+    Keyword-Match und werden ans LLM weitergereicht — Substring-Match ist hier
+    zu primitiv ('paprika' würde fälschlich auf Obst/Gemüse mappen)."""
     norm = item.lower().strip()
 
     if norm in learned and learned[norm] in categories:
         return learned[norm]
+
+    if "," in item:
+        return None
 
     # Längstes Keyword zuerst, damit "eier" vor "ei" matcht
     for kw in sorted(keywords.keys(), key=len, reverse=True):
@@ -35,7 +44,7 @@ def classify_by_keyword(
 
 
 async def classify_bulk_with_llm(
-    hass: HomeAssistant,
+    hass: "HomeAssistant",
     items: list[str],
     categories: list[str],
     agent_id: str,

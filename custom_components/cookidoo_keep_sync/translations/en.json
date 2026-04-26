@@ -23,6 +23,7 @@
         "menu_options": {
           "entities": "Lists & agent",
           "keywords": "Keyword mappings",
+          "learned": "Learned mappings (cache)",
           "advanced": "Advanced"
         }
       },
@@ -40,6 +41,13 @@
       "keywords": {
         "title": "Keyword → category",
         "description": "Format per line: 'keyword = Category name'. Keywords match case-insensitively as substrings of the item name (longest match wins). Lines starting with '#' are ignored.",
+        "data": {
+          "text": "Mappings"
+        }
+      },
+      "learned": {
+        "title": "Learned mappings",
+        "description": "LLM-learned (or manually maintained) item→category mappings. One per line: 'item-name = Category name'. Manual entries override the LLM since the cache is checked before any classifier runs. Currently: {count} entries.",
         "data": {
           "text": "Mappings"
         }
