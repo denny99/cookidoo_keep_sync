@@ -1,6 +1,62 @@
 # CHANGELOG
 
 
+## v2.0.0 (2026-04-26)
+
+### Chores
+
+- Defensive checks, i18n entity name, ci on develop branch
+  ([`4c65423`](https://github.com/denny99/cookidoo_keep_sync/commit/4c65423e9f6f497cf35c042fc02505714b5b753a))
+
+- Coordinator: explicit HomeAssistantError if run_sync is called for an unknown entry_id (was a
+  silent KeyError before). - Skip-check extracted into a named helper for readability. - Categories
+  todo entity uses translation_key + entity-translation files instead of a hardcoded German name. -
+  pyproject.toml gets a comment explaining why the version is 0.0.0 (it's just tooling config, not a
+  published package). - Test workflow now runs on develop pushes/PRs too, so the develop branch gets
+  CI feedback without triggering releases. - Strip stray triple-blank lines.
+
+Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
+
+### Features
+
+- Configurable LLM examples count, services.yaml hints, parser tests
+  ([`3fdfc0e`](https://github.com/denny99/cookidoo_keep_sync/commit/3fdfc0eb7076dd40193c5828d94cc0706666fc42))
+
+- New 'Advanced' options step exposes llm_examples_per_category (default 2, range 0-10). 0 disables
+  the calibration block entirely. - services.yaml entry_id now has a real description that explains
+  when it's needed and how to find the ID. - Extracted parse_bulk_response and extract_speech as
+  pure public functions in classifier.py so the LLM-output parsing — the most fragile spot, since
+  different conversation agents format replies differently — has direct unit-test coverage. - 14 new
+  tests covering perfect format, whitespace, punctuation, case-insensitivity, fuzzy substring
+  matching, hallucinated categories, out-of-range indices, partial responses and malformed
+  speech-extraction shapes.
+
+Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
+
+- New default categories, harden review-flagged spots
+  ([`2c26f9f`](https://github.com/denny99/cookidoo_keep_sync/commit/2c26f9fb53a5970c5b51f2d8beeb986b971da251))
+
+Behavior changes: - DEFAULT_CATEGORIES is now the curated 38-category list the user has been
+  iterating on in production (Obst, Gemüse, Kartoffel, ... , Tiefkühlware, Saft, Getränke,
+  Sonstiges). Replaces the original Rewe-style 14-category placeholder. - Service handlers now raise
+  ServiceValidationError when called without entry_id and multiple configurations exist, instead of
+  returning an empty result silently. - Quantities with unknown units preserve original casing in
+  the output ('1 Tütchen + 2 Tütchen' → '3 Tütchen' instead of '3 tütchen').
+
+Code quality: - Quantity dataclass renamed to _Quantity (private) and gained a unit_raw field to
+  support the casing fix above. - coordinator.async_run_sync now returns a typed SyncResult
+  TypedDict and uses a typed _CookidooGroup TypedDict instead of `dict[str, dict]`. - Removed dead
+  CONF_LEARNED constant. - Promoted the lazy import of coordinator inside config_flow's
+  async_step_learned to a top-level import (no circular dependency).
+
+Tooling: - semantic-release now generates a CHANGELOG.md, excluding its own release commits.
+
+Docs: - README updated to use the new English entity slug todo.cookidoo_keep_categories (no existing
+  users to migrate).
+
+Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
+
+
 ## v1.0.0 (2026-04-26)
 
 ### Refactoring
