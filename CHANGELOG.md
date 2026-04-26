@@ -1,6 +1,52 @@
 # CHANGELOG
 
 
+## v1.0.0 (2026-04-26)
+
+### Refactoring
+
+- Drop default keyword set
+  ([`adaa012`](https://github.com/denny99/cookidoo_keep_sync/commit/adaa012eb121465880a0c71378c27cf1d5c72619))
+
+Default keywords pointed at hardcoded category names ("Obst/Gemüse", "Tomaten Sachen", ...) but
+  categories are user-editable via the auto-created todo entity. Once users renamed or restructured
+  their categories, the defaults silently stopped matching anyway.
+
+The LLM + learned cache make the keyword feature optional. Fresh installs now go straight to the LLM
+  on first sync; everything is cached after that. Power users who want offline-only operation can
+  still maintain keywords manually via the options flow — and now those keywords are guaranteed to
+  match their actual categories because they wrote them themselves.
+
+Existing users keep their previously-saved keyword config; this change only affects fresh installs.
+
+Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
+
+- Drop keyword feature, send learned examples to LLM, fix dead code
+  ([`eae2bd9`](https://github.com/denny99/cookidoo_keep_sync/commit/eae2bd99a2fe0fa3ed9b803db3e9b62bc1dbc4f8))
+
+Behavior changes: - The keyword-substring matcher is gone. The LLM + persistent cache cover the same
+  use cases, with the cache being checked first (instant), and the LLM only consulted for genuinely
+  new items. The cache is editable via the options flow, so manual overrides still work — even for
+  offline-only setups, the user just populates the cache themselves instead of curating keywords. -
+  Bulk LLM calls now include up to 2 already-learned examples per category as calibration, so the
+  LLM adopts the user's personal category schema and stops repeating earlier mistakes. - Removed
+  CONF_CLEAR_BEFORE_SYNC: it was no longer wired up since the merge-and-rewrite refactor and was
+  confusing dead UI.
+
+Code quality: - Multi-entry service handler now resolves the target entry_id at call time (single
+  registered entry → that one; multiple → require explicit entry_id). Previously the closure
+  captured the first entry and ignored later ones. - Phase comments in the coordinator's run_sync
+  are now numbered consistently (1..6 instead of overlapping 1, 2, 3a, 3b, 3, 4, 5...) -
+  async_complete_item now catches HomeAssistantError specifically, not bare Exception. -
+  _text_to_mapping has an explicit lowercase_keys flag instead of a hardcoded behavior tied to one
+  caller. - Removed unused _LOGGER import in todo.py.
+
+Docs: - README updated for the new flow (no more keyword references, quantity aggregation explained,
+  cache editor mentioned). - services.yaml description rewritten.
+
+Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
+
+
 ## v0.4.1 (2026-04-26)
 
 ### Bug Fixes
