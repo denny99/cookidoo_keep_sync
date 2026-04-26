@@ -1,9 +1,9 @@
 sync:
   name: Sync Cookidoo → Keep
   description: >
-    Liest Items aus der Cookidoo-Todo-Liste, klassifiziert sie nach
-    Supermarkt-Kategorie (Keyword-Match + optional LLM-Fallback) und schreibt
-    sie sortiert in die Google-Keep-Liste.
+    Mergt offene Cookidoo- und Keep-Items, klassifiziert über den
+    Lerncache (Bulk-LLM-Call für unbekannte), schreibt sortiert in
+    die Keep-Liste und hakt die kopierten Cookidoo-Items dort ab.
   fields:
     entry_id:
       name: Config Entry ID

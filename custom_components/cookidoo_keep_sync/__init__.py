@@ -11,9 +11,7 @@ from homeassistant.helpers import config_validation as cv
 
 from .const import (
     CONF_CATEGORIES,
-    CONF_KEYWORDS,
     DEFAULT_CATEGORIES,
-    DEFAULT_KEYWORDS,
     DOMAIN,
     SERVICE_RESET_LEARNED,
     SERVICE_SYNC,
@@ -34,20 +32,44 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     options = {**entry.data, **entry.options}
     options.setdefault(CONF_CATEGORIES, DEFAULT_CATEGORIES)
-    options.setdefault(CONF_KEYWORDS, DEFAULT_KEYWORDS)
 
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN][entry.entry_id] = {"options": options, "entry": entry}
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
+    def _resolve_entry_id(call: ServiceCall) -> str | None:
+        """Wenn explizit angegeben → das. Sonst: nur ein Entry registriert?
+        Dann diesen. Sonst error (ambiguous bei mehreren)."""
+        explicit = call.data.get("entry_id")
+        if explicit:
+            return explicit
+        entries = list(hass.data.get(DOMAIN, {}).keys())
+        if len(entries) == 1:
+            return entries[0]
+        return None
+
     async def _handle_sync(call: ServiceCall) -> dict:
-        target_entry_id = call.data.get("entry_id") or entry.entry_id
-        return await async_run_sync(hass, target_entry_id)
+        target = _resolve_entry_id(call)
+        if not target:
+            _LOGGER.error(
+                "Service '%s.%s' ohne entry_id aufgerufen, aber mehrere "
+                "Konfigurationen existieren — bitte entry_id angeben.",
+                DOMAIN, SERVICE_SYNC,
+            )
+            return {}
+        return await async_run_sync(hass, target)
 
     async def _handle_reset(call: ServiceCall) -> None:
-        target_entry_id = call.data.get("entry_id") or entry.entry_id
-        await async_save_learned(hass, target_entry_id, {})
+        target = _resolve_entry_id(call)
+        if not target:
+            _LOGGER.error(
+                "Service '%s.%s' ohne entry_id aufgerufen, aber mehrere "
+                "Konfigurationen existieren — bitte entry_id angeben.",
+                DOMAIN, SERVICE_RESET_LEARNED,
+            )
+            return
+        await async_save_learned(hass, target, {})
 
     if not hass.services.has_service(DOMAIN, SERVICE_SYNC):
         hass.services.async_register(
@@ -71,7 +93,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def _async_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
     options = {**entry.data, **entry.options}
     options.setdefault(CONF_CATEGORIES, DEFAULT_CATEGORIES)
-    options.setdefault(CONF_KEYWORDS, DEFAULT_KEYWORDS)
     hass.data[DOMAIN][entry.entry_id]["options"] = options
 
 

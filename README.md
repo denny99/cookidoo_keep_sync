@@ -19,9 +19,10 @@ This integration solves both: it copies the items into a fully editable Google K
 - **No double-imports**: after copying, the Cookidoo item is marked as completed there so it doesn't show up again on the next sync (assuming the Cookidoo integration supports `update_item`)
 - **Already-checked items are ignored** in both lists
 - **Sort by personal supermarket order** (e.g. fruit/veg → meat → cheese → drinks)
-- **Keyword-based classification** (offline, free, ~90% hit rate)
-- **Bulk LLM fallback** for unknown items: a single call to Claude / OpenAI / Ollama classifies all leftover items at once — structured `[N] Category` output is parsed via regex
-- **Auto-learning**: every LLM-classified item is persisted and resolved by keyword match on the next sync — the LLM is only consulted for genuinely new items
+- **Quantity aggregation**: multiple recipes wanting the same ingredient get merged with summed/converted quantities (e.g. `Zwiebeln (70 g + 1 Stk)`, `800 g + 0.5 kg → 1.3 kg`)
+- **Bulk LLM classification** of unknown items: a single call to Claude / OpenAI / Ollama classifies all leftover items at once — structured `[N] Category` output is parsed via regex. Previously-learned examples are sent along to calibrate the LLM on your personal category names
+- **Auto-learning**: every LLM-classified item is persisted; subsequent syncs resolve it from the local cache. The LLM is only consulted for genuinely new items
+- **Editable cache**: review and override LLM classifications via Settings → Devices & Services → Cookidoo → Configure → Learned mappings
 - **Native HA Todo entity for the category order**: the integration auto-creates `todo.cookidoo_keep_kategorien` whose **order can be changed by drag & drop in the HA UI**
 - Optional: override todo list, in case you want to maintain categories somewhere else (e.g. a Keep list shared with your partner)
 - Service `cookidoo_keep_sync.sync` for buttons, automations, or voice commands
@@ -154,30 +155,32 @@ learned:
 ## How a sync works
 
 ```
-1. Read all OPEN (unchecked) items from
-     - the Cookidoo list
-     - the Google Keep list
-   and merge them into a deduplicated combined list.
+1. Read all OPEN (unchecked) items from Cookidoo + Google Keep.
+   Group cookidoo items with the same name and aggregate quantities
+   (compatible units summed/converted, incompatible kept side-by-side).
+   Merge with manual Keep items into a deduplicated combined list.
 
 2. Classify:
-     a) Keyword match (offline, instant)            → e.g. fruit/veg
-     b) On miss: bulk LLM call (one call for ALL    → "[N] Category"
-        leftover items, parsed by regex)
+     a) Cache hit (offline, instant)                → category from cache
+     b) Cache miss → bulk LLM call (one call for    → "[N] Category"
+        ALL unknowns, parsed by regex; previously
+        learned examples are included so the LLM
+        adopts your personal category schema)
      c) Otherwise: category "Sonstiges" (other)
-   Every LLM-classified item is persisted to the learned cache.
 
-3. Sort by category order from
-     todo.cookidoo_keep_kategorien
+3. Sort by category order from todo.cookidoo_keep_kategorien
    (drag & drop in the HA UI), alphabetically within a category.
 
-4. Delete all OPEN Keep items, write the sorted list back.
-   Already-checked Keep items are left untouched.
+4. Skip-check: if Keep already shows exactly this list in this order
+   AND no Cookidoo items are still open, return immediately.
 
-5. Cookidoo items we copied are marked completed in Cookidoo
-   → no double-import on the next sync.
+5. Otherwise: delete OPEN keep items in parallel, write the sorted
+   list back sequentially (preserves order), mark cookidoo items
+   completed sequentially (the cookidoo integration loses parallel
+   updates). Already-checked Keep items are never touched.
 ```
 
-On subsequent syncs, learned items are resolved by the keyword-cache lookup — the LLM is only consulted for **genuinely new** items. So a sync with 30 known + 2 new items costs exactly one bulk call.
+A sync with 30 known + 2 new items costs exactly one bulk LLM call.
 
 ## Persistence / where is data stored?
 
@@ -196,8 +199,7 @@ All persisted via HA's standard `Store` helper (atomic JSON writes). Survives re
 | Section | What you configure |
 |---------|--------------------|
 | **Lists & agent** | Source / target todo lists, conversation agent, optional override for the categories list |
-| **Keyword mappings** | Add your own `keyword = Category` lines (extends defaults) |
-| **Advanced** | Clear the Keep list before each sync (use with care!) |
+| **Learned mappings** | Edit the LLM-learned cache: review past classifications, override wrong ones, add manual entries (manual entries override the LLM) |
 
 The **category order** is **not** edited here, but directly in the todo entity (see above).
 
@@ -220,7 +222,7 @@ The **category order** is **not** edited here, but directly in the todo entity (
 
 **"LLM classifies into a non-existent category"**: the LLM occasionally returns a name that doesn't exactly match one of your categories. The integration falls back to fuzzy substring matching; if that also fails, the item lands in "Sonstiges". Fix: add an appropriate keyword rule, or rename the category slightly so the LLM picks it more reliably.
 
-**"Order in Keep is wrong"**: the Keep-sync integration handles add-order differently across versions. If sort order isn't preserved, enable "Clear Keep list before each sync" in the Advanced tab.
+**"Order in Keep is wrong"**: the Keep-sync integration handles add-order differently across versions. The integration always rewrites the open Keep items on each sync to enforce the desired order, so disagreements usually mean the Keep-sync integration is reordering after the fact. Check its docs for an option to disable that.
 
 ## Limitations
 

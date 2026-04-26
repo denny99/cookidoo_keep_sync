@@ -1,71 +1,59 @@
-"""Tests für classifier.classify_by_keyword (pure function, kein hass nötig)."""
+"""Tests für die pure Klassifikator-Funktionen (kein hass nötig)."""
 from __future__ import annotations
 
-from classifier import classify_by_keyword
+from classifier import classify_from_cache, select_examples
 
 
 CATS = ["Obst/Gemüse", "Gewürze", "Sonstiges"]
 
 
-class TestLearnedCacheWins:
-    def test_learned_takes_precedence(self):
+class TestClassifyFromCache:
+    def test_hit(self):
         learned = {"paprika, edelsüß": "Gewürze"}
-        keywords = {"paprika": "Obst/Gemüse"}
         assert (
-            classify_by_keyword(
-                "Paprika, edelsüß", keywords, learned, CATS
-            )
-            == "Gewürze"
+            classify_from_cache("Paprika, edelsüß", learned, CATS) == "Gewürze"
         )
 
-    def test_learned_skipped_if_category_no_longer_exists(self):
+    def test_case_insensitive_lookup(self):
+        learned = {"tomaten": "Obst/Gemüse"}
+        assert classify_from_cache("Tomaten", learned, CATS) == "Obst/Gemüse"
+        assert classify_from_cache("TOMATEN", learned, CATS) == "Obst/Gemüse"
+
+    def test_miss_returns_none(self):
+        assert classify_from_cache("Marzipan", {}, CATS) is None
+
+    def test_stale_category_ignored(self):
         learned = {"paprika": "RemovedCategory"}
-        keywords = {"paprika": "Obst/Gemüse"}
-        # Cache-Eintrag zeigt auf gelöschte Kategorie → fallback auf keyword
-        assert (
-            classify_by_keyword("paprika", keywords, learned, CATS)
-            == "Obst/Gemüse"
-        )
+        # Cache zeigt auf nicht mehr existierende Kategorie → Miss
+        assert classify_from_cache("Paprika", learned, CATS) is None
 
 
-class TestCommaSkipsKeywords:
-    def test_comma_in_item_skips_keyword_match(self):
-        # 'paprika' als Keyword würde matchen, aber Komma → None → später LLM
-        keywords = {"paprika": "Obst/Gemüse"}
-        assert (
-            classify_by_keyword(
-                "Paprika, edelsüß", keywords, {}, CATS
-            )
-            is None
-        )
+class TestSelectExamples:
+    def test_picks_one_per_category_alphabetically(self):
+        learned = {
+            "tomaten": "Obst/Gemüse",
+            "apfel": "Obst/Gemüse",
+            "banane": "Obst/Gemüse",
+            "pfeffer": "Gewürze",
+        }
+        ex = select_examples(learned, CATS, max_per_category=2)
+        # Reihenfolge: Kategorien wie übergeben (Obst zuerst), dann alphabetisch
+        assert ex == [
+            ("apfel", "Obst/Gemüse"),
+            ("banane", "Obst/Gemüse"),
+            ("pfeffer", "Gewürze"),
+        ]
 
-    def test_no_comma_uses_keyword(self):
-        keywords = {"paprika": "Obst/Gemüse"}
-        assert (
-            classify_by_keyword("Paprika", keywords, {}, CATS) == "Obst/Gemüse"
-        )
+    def test_skips_stale_categories(self):
+        learned = {"foo": "RemovedCategory", "tomaten": "Obst/Gemüse"}
+        ex = select_examples(learned, CATS)
+        assert ex == [("tomaten", "Obst/Gemüse")]
 
-    def test_comma_but_already_learned_returns_cache(self):
-        learned = {"paprika, edelsüß": "Gewürze"}
-        # Cache wird VOR der Komma-Regel gecheckt
-        assert (
-            classify_by_keyword(
-                "Paprika, edelsüß", {}, learned, CATS
-            )
-            == "Gewürze"
-        )
+    def test_empty_input(self):
+        assert select_examples({}, CATS) == []
+        assert select_examples({"foo": "Bar"}, []) == []
 
-
-class TestLongestKeywordWins:
-    def test_longer_keyword_overrides_shorter(self):
-        keywords = {"ei": "Brot", "eier": "Brot/Eier"}
-        cats = ["Brot", "Brot/Eier"]
-        assert (
-            classify_by_keyword("Eier", keywords, {}, cats) == "Brot/Eier"
-        )
-
-
-class TestUnknownItem:
-    def test_returns_none_for_no_match(self):
-        keywords = {"apfel": "Obst/Gemüse"}
-        assert classify_by_keyword("Marzipan", keywords, {}, CATS) is None
+    def test_respects_max_per_category(self):
+        learned = {f"item{i}": "Obst/Gemüse" for i in range(10)}
+        ex = select_examples(learned, CATS, max_per_category=3)
+        assert len(ex) == 3

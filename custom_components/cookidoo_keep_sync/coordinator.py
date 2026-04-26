@@ -5,9 +5,10 @@ import asyncio
 import logging
 
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.storage import Store
 
-from .classifier import UNKNOWN, classify_bulk_with_llm, classify_by_keyword
+from .classifier import UNKNOWN, classify_bulk_with_llm, classify_from_cache
 from .quantities import aggregate as aggregate_qtys
 from .quantities import normalize_for_dedup, split_name_qty, strip_qty_parens
 from .const import (
@@ -16,7 +17,6 @@ from .const import (
     CONF_CONVERSATION_AGENT,
     CONF_COOKIDOO_ENTITY,
     CONF_KEEP_ENTITY,
-    CONF_KEYWORDS,
     CONF_USE_LLM,
     DEFAULT_CATEGORIES,
     DOMAIN,
@@ -101,7 +101,7 @@ async def async_complete_item(
             },
             blocking=True,
         )
-    except Exception as err:  # noqa: BLE001
+    except HomeAssistantError as err:
         _LOGGER.warning(
             "Konnte Item '%s' in %s nicht abhaken: %s",
             item_ref, entity_id, err,
@@ -143,7 +143,6 @@ async def async_run_sync(hass: HomeAssistant, entry_id: str) -> dict:
     keep_entity: str = options[CONF_KEEP_ENTITY]
     agent_id: str | None = options.get(CONF_CONVERSATION_AGENT)
     categories = await _resolve_categories(hass, entry_id, options)
-    keywords: dict[str, str] = options.get(CONF_KEYWORDS) or {}
     use_llm: bool = options.get(CONF_USE_LLM, True) and bool(agent_id)
 
     learned: dict[str, str] = await async_load_learned(hass, entry_id)
@@ -209,33 +208,36 @@ async def async_run_sync(hass: HomeAssistant, entry_id: str) -> dict:
     # damit Cache-Keys stabil bleiben, wenn sich nur die Menge ändert.
     clean_for: dict[str, str] = {original: strip_qty_parens(original) for original in combined}
 
-    # Phase 1: Keyword-Match
-    by_keyword: dict[str, str] = {}
+    # Phase 3a: Lerncache prüfen
+    by_cache: dict[str, str] = {}
     unknown_items: list[str] = []  # Liste der CLEAN-Namen (deduped)
     for original in combined:
         clean = clean_for[original]
-        category = classify_by_keyword(clean, keywords, learned, categories)
+        category = classify_from_cache(clean, learned, categories)
         if category is not None:
-            by_keyword[original] = category
+            by_cache[original] = category
         elif clean not in unknown_items:
             unknown_items.append(clean)
 
-    # Phase 2: ein einziger Bulk-LLM-Call (auf den clean names)
+    # Phase 3b: ein einziger Bulk-LLM-Call für unbekannte Items.
+    # Bisherige Cache-Einträge gehen als Beispiele an den LLM mit, damit
+    # er das Schema des Users übernimmt und nicht wieder Fehler wie
+    # "Paprika, edelsüß → Obst/Gemüse" macht.
     llm_result: dict[str, str] = {}
     learned_new: dict[str, str] = {}
     if unknown_items and use_llm:
         llm_result = await classify_bulk_with_llm(
-            hass, unknown_items, categories, agent_id
+            hass, unknown_items, categories, agent_id, learned=learned
         )
         for clean, category in llm_result.items():
             learned_new[clean.lower()] = category
 
-    # Phase 3: alles zusammenführen + sortieren
+    # Phase 4: alles zusammenführen + sortieren
     classified: list[tuple[int, str, str]] = []
     for original in combined:
         clean = clean_for[original]
         category = (
-            by_keyword.get(original)
+            by_cache.get(original)
             or llm_result.get(clean)
             or UNKNOWN
         )
@@ -244,7 +246,7 @@ async def async_run_sync(hass: HomeAssistant, entry_id: str) -> dict:
     classified.sort(key=lambda x: (x[0], x[2].lower()))
     desired_summaries = [original for _, _, original in classified]
 
-    # Phase 4: Skip-Check — wenn Keep bereits exakt diese Liste in dieser
+    # Phase 5: Skip-Check — wenn Keep bereits exakt diese Liste in dieser
     # Reihenfolge zeigt UND keine offenen Cookidoo-Items rumliegen, ist nichts zu tun.
     current_open_keep = [
         (it.get("summary") or "").strip()
@@ -262,21 +264,21 @@ async def async_run_sync(hass: HomeAssistant, entry_id: str) -> dict:
     if nothing_to_do:
         _LOGGER.info("Cookidoo→Keep Sync: nichts zu tun (Liste bereits aktuell)")
     else:
-        # Phase 5a: Keep-Deletes parallel (gleiche Liste, unterschiedliche Items —
+        # Phase 6a: Keep-Deletes parallel (gleiche Liste, unterschiedliche Items —
         # die Keep-Sync-Integration verträgt parallele remove_item-Calls).
         if not keep_aligned and current_open_keep:
             await asyncio.gather(
                 *[async_remove_item(hass, keep_entity, s) for s in current_open_keep]
             )
 
-        # Phase 5b: Cookidoo-Completes sequenziell. Parallele update_item-Calls
+        # Phase 6b: Cookidoo-Completes sequenziell. Parallele update_item-Calls
         # auf miaucl/ha-cookidoo verlieren Updates wenn sie gleichzeitig laufen
         # (vermutlich Race auf dem Cookidoo-API-Client).
         for ref in cookidoo_to_complete:
             await async_complete_item(hass, cookidoo_entity, ref)
         completed_in_cookidoo = list(cookidoo_to_complete)
 
-        # Phase 5c: Adds (Keep) sequenziell — Reihenfolge muss erhalten bleiben.
+        # Phase 6c: Adds (Keep) sequenziell — Reihenfolge muss erhalten bleiben.
         if not keep_aligned:
             for _, category, original in classified:
                 await async_add_item(hass, keep_entity, original)

@@ -1,4 +1,9 @@
-"""Klassifiziert Items in Kategorien per Keyword-Match + LLM-Fallback."""
+"""Klassifiziert Items per Lerncache (Phase 1) + LLM-Bulk-Call (Phase 2).
+
+Es gibt bewusst keinen Keyword-/Substring-Matcher mehr: der Cache klassifiziert
+identische Item-Namen sofort, neue Items gehen ans LLM. Cookidoo wiederholt
+Zutatennamen über Rezepte hinweg, also stabilisiert sich das schnell.
+"""
 from __future__ import annotations
 
 import logging
@@ -16,30 +21,16 @@ UNKNOWN = "Sonstiges"
 _BULK_LINE_RE = re.compile(r"^\s*\[(\d+)\]\s*(.+?)\s*$")
 
 
-def classify_by_keyword(
+def classify_from_cache(
     item: str,
-    keywords: dict[str, str],
     learned: dict[str, str],
     categories: list[str],
 ) -> str | None:
-    """Match item against learned-cache, dann Keyword-Dict. Returns category or None.
-
-    Items mit Komma (Cookidoo-Varianten wie 'Paprika, edelsüß') überspringen den
-    Keyword-Match und werden ans LLM weitergereicht — Substring-Match ist hier
-    zu primitiv ('paprika' würde fälschlich auf Obst/Gemüse mappen)."""
+    """Sucht das Item im Lerncache. Stale Einträge (Kategorie existiert nicht
+    mehr in `categories`) werden ignoriert."""
     norm = item.lower().strip()
-
     if norm in learned and learned[norm] in categories:
         return learned[norm]
-
-    if "," in item:
-        return None
-
-    # Längstes Keyword zuerst, damit "eier" vor "ei" matcht
-    for kw in sorted(keywords.keys(), key=len, reverse=True):
-        if kw in norm and keywords[kw] in categories:
-            return keywords[kw]
-
     return None
 
 
@@ -48,23 +39,34 @@ async def classify_bulk_with_llm(
     items: list[str],
     categories: list[str],
     agent_id: str,
+    learned: dict[str, str] | None = None,
 ) -> dict[str, str]:
-    """Klassifiziert alle Items in EINEM LLM-Call.
-
-    Antwortformat pro Zeile: '[N] Kategoriename'.
-    Items, die der Agent nicht zuordnet, fehlen im Result-Dict.
-    """
+    """Klassifiziert alle Items in EINEM LLM-Call. Wenn `learned` mitgegeben
+    wird, werden bis zu 2 Beispiele pro Kategorie als Calibration in den
+    Prompt eingebettet, damit der LLM die persönlichen Schemata des Users
+    übernimmt und nicht dauernd die gleichen Fehler macht."""
     if not items:
         return {}
 
     cat_list = "\n".join(f"- {c}" for c in categories)
     numbered = "\n".join(f"{i + 1}. {it}" for i, it in enumerate(items))
+
+    examples_block = ""
+    if learned:
+        examples = select_examples(learned, categories, max_per_category=2)
+        if examples:
+            lines = "\n".join(f"- {item} → {cat}" for item, cat in examples)
+            examples_block = (
+                "\nBekannte Beispiele aus früheren Klassifikationen "
+                "(folge diesem Schema, auch bei Grenzfällen):\n"
+                f"{lines}\n"
+            )
+
     prompt = (
         "Du sortierst Einkaufsartikel in Supermarkt-Kategorien.\n"
-        "Erlaubte Kategorien (verwende nur diese exakten Namen):\n"
-        f"{cat_list}\n\n"
-        "Artikel:\n"
-        f"{numbered}\n\n"
+        f"Erlaubte Kategorien (verwende nur diese exakten Namen):\n{cat_list}\n"
+        f"{examples_block}"
+        f"\nNeue Artikel:\n{numbered}\n\n"
         "Antworte für JEDEN Artikel mit GENAU einer Zeile im Format:\n"
         "[NUMMER] Kategoriename\n"
         "Keine Erklärungen, kein Markdown, keine Leerzeilen, keine zusätzlichen Zeichen.\n"
@@ -104,10 +106,32 @@ async def classify_bulk_with_llm(
 
     if len(result) < len(items):
         missing = [it for it in items if it not in result]
-        _LOGGER.debug("Bulk-LLM hat %d/%d Items nicht klassifiziert: %s",
-                      len(missing), len(items), missing)
+        _LOGGER.debug(
+            "Bulk-LLM hat %d/%d Items nicht klassifiziert: %s",
+            len(missing), len(items), missing,
+        )
 
     return result
+
+
+def select_examples(
+    learned: dict[str, str],
+    categories: list[str],
+    max_per_category: int = 2,
+) -> list[tuple[str, str]]:
+    """Wählt bis zu `max_per_category` Beispiel-Mappings pro Kategorie aus dem
+    Lerncache. Reihenfolge: Kategorien wie übergeben (also wie in der
+    Markt-Sortierung), innerhalb alphabetisch nach Item-Name."""
+    by_cat: dict[str, list[str]] = {}
+    for item, cat in learned.items():
+        if cat in categories:
+            by_cat.setdefault(cat, []).append(item)
+    out: list[tuple[str, str]] = []
+    for cat in categories:
+        items = sorted(by_cat.get(cat, []))[:max_per_category]
+        for item in items:
+            out.append((item, cat))
+    return out
 
 
 def _resolve_category(raw: str, cat_lower: dict[str, str]) -> str | None:

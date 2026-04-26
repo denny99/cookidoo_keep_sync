@@ -1,7 +1,6 @@
 """Todo-Plattform: stellt eine Kategorien-Liste zum Reordern in der HA-UI bereit."""
 from __future__ import annotations
 
-import logging
 import uuid
 
 from homeassistant.components.todo import (
@@ -16,8 +15,6 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.storage import Store
 
 from .const import CATEGORIES_ENTITY_NAME, DEFAULT_CATEGORIES, DOMAIN
-
-_LOGGER = logging.getLogger(__name__)
 
 STORAGE_VERSION = 1
 

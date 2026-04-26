@@ -18,13 +18,10 @@ from homeassistant.helpers.selector import (
 
 from .const import (
     CONF_CATEGORIES_ENTITY,
-    CONF_CLEAR_BEFORE_SYNC,
     CONF_CONVERSATION_AGENT,
     CONF_COOKIDOO_ENTITY,
     CONF_KEEP_ENTITY,
-    CONF_KEYWORDS,
     CONF_USE_LLM,
-    DEFAULT_KEYWORDS,
     DOMAIN,
 )
 
@@ -45,22 +42,22 @@ def _mapping_to_text(d: dict[str, str]) -> str:
     return "\n".join(f"{k} = {v}" for k, v in sorted(d.items()))
 
 
-def _text_to_mapping(text: str) -> dict[str, str]:
+def _text_to_mapping(text: str, *, lowercase_keys: bool = True) -> dict[str, str]:
+    """Parst 'key = value'-Zeilen. Leere Zeilen und '#'-Kommentare werden ignoriert.
+    Mit lowercase_keys=True (für den Lerncache) werden alle Keys auf Lowercase gezwungen."""
     out: dict[str, str] = {}
     for line in text.splitlines():
         line = line.strip()
         if not line or line.startswith("#") or "=" not in line:
             continue
         k, v = line.split("=", 1)
-        k, v = k.strip().lower(), v.strip()
+        k = k.strip()
+        v = v.strip()
+        if lowercase_keys:
+            k = k.lower()
         if k and v:
             out[k] = v
     return out
-
-
-# Aliases damit die alten Namen lesbar bleiben
-_keywords_to_text = _mapping_to_text
-_text_to_keywords = _text_to_mapping
 
 
 class CookidooKeepConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -78,9 +75,7 @@ class CookidooKeepConfigFlow(ConfigFlow, domain=DOMAIN):
                 title="Cookidoo → Keep",
                 data=user_input,
                 options={
-                    CONF_KEYWORDS: DEFAULT_KEYWORDS,
                     CONF_USE_LLM: user_input.get(CONF_USE_LLM, True),
-                    CONF_CLEAR_BEFORE_SYNC: False,
                 },
             )
 
@@ -113,7 +108,7 @@ class CookidooKeepOptionsFlow(OptionsFlow):
     ) -> FlowResult:
         return self.async_show_menu(
             step_id="init",
-            menu_options=["entities", "keywords", "learned", "advanced"],
+            menu_options=["entities", "learned"],
         )
 
     async def async_step_learned(
@@ -182,41 +177,3 @@ class CookidooKeepOptionsFlow(OptionsFlow):
         )
         return self.async_show_form(step_id="entities", data_schema=schema)
 
-    async def async_step_keywords(
-        self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
-        cur = self._current
-        kw = cur.get(CONF_KEYWORDS) or DEFAULT_KEYWORDS
-
-        if user_input is not None:
-            new_kw = _text_to_keywords(user_input["text"])
-            return self.async_create_entry(
-                title="",
-                data={**self._entry.options, CONF_KEYWORDS: new_kw},
-            )
-
-        schema = vol.Schema(
-            {
-                vol.Required("text", default=_keywords_to_text(kw)): _multiline(),
-            }
-        )
-        return self.async_show_form(step_id="keywords", data_schema=schema)
-
-    async def async_step_advanced(
-        self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
-        cur = self._current
-        if user_input is not None:
-            return self.async_create_entry(
-                title="",
-                data={**self._entry.options, **user_input},
-            )
-        schema = vol.Schema(
-            {
-                vol.Required(
-                    CONF_CLEAR_BEFORE_SYNC,
-                    default=cur.get(CONF_CLEAR_BEFORE_SYNC, False),
-                ): BooleanSelector(),
-            }
-        )
-        return self.async_show_form(step_id="advanced", data_schema=schema)

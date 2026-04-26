@@ -22,9 +22,7 @@
         "title": "Cookidoo → Keep Optionen",
         "menu_options": {
           "entities": "Listen & Agent",
-          "keywords": "Keyword-Mappings",
-          "learned": "Gelernte Mappings (Cache)",
-          "advanced": "Erweitert"
+          "learned": "Gelernte Mappings (Cache)"
         }
       },
       "entities": {
@@ -38,24 +36,11 @@
           "use_llm": "LLM-Fallback aktivieren"
         }
       },
-      "keywords": {
-        "title": "Keyword → Kategorie",
-        "description": "Format pro Zeile: 'keyword = Kategoriename'. Keywords werden case-insensitive als Substring im Item-Namen gesucht (längstes Keyword gewinnt). Zeilen mit '#' werden ignoriert.",
-        "data": {
-          "text": "Mappings"
-        }
-      },
       "learned": {
         "title": "Gelernte Mappings",
         "description": "Vom LLM gelernte (oder von dir manuell gepflegte) Item→Kategorie-Zuordnungen. Format pro Zeile: 'item-name = Kategoriename'. Manuelle Einträge überschreiben die KI: der Cache wird vor jeder Klassifikation geprüft. Aktuell: {count} Einträge.",
         "data": {
           "text": "Mappings"
-        }
-      },
-      "advanced": {
-        "title": "Erweitert",
-        "data": {
-          "clear_before_sync": "Keep-Liste vor jedem Sync komplett leeren"
         }
       }
     }
