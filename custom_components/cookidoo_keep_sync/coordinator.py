@@ -8,6 +8,8 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
 
 from .classifier import UNKNOWN, classify_bulk_with_llm, classify_by_keyword
+from .quantities import aggregate as aggregate_qtys
+from .quantities import normalize_for_dedup, split_name_qty
 from .const import (
     CONF_CATEGORIES,
     CONF_CATEGORIES_ENTITY,
@@ -149,32 +151,52 @@ async def async_run_sync(hass: HomeAssistant, entry_id: str) -> dict:
     cookidoo_items = await async_get_todo_items(hass, cookidoo_entity)
     keep_items = await async_get_todo_items(hass, keep_entity)
 
-    # Offene Items aus beiden Quellen sammeln, Reihenfolge erhalten, dedupen.
-    # cookidoo_to_complete merkt sich UID (bevorzugt) oder Summary jedes offenen
-    # Cookidoo-Items, damit wir sie nach dem Sync abhaken können — auch wenn das
-    # Item in Keep schon existiert (Duplikat) und gar nicht neu reinkopiert wird.
+    # Phase 1: Cookidoo-Items mit gleichem Namen gruppieren und Mengen aggregieren.
+    # Quantity-Quelle: bevorzugt das description-Feld der Todo-Item, sonst Trailing-Qty
+    # aus dem Summary parsen (z.B. "Zwiebeln 70 g").
+    cookidoo_groups: dict[str, dict] = {}  # lower(name) -> {"name", "qtys", "uids"}
+    for it in cookidoo_items:
+        if not _is_open(it):
+            continue
+        raw_summary = (it.get("summary") or "").strip()
+        if not raw_summary:
+            continue
+        desc = (it.get("description") or "").strip()
+        if desc:
+            name, qty = raw_summary, desc
+        else:
+            name, qty = split_name_qty(raw_summary)
+        key = name.lower()
+        g = cookidoo_groups.setdefault(key, {"name": name, "qtys": [], "uids": []})
+        if qty:
+            g["qtys"].append(qty)
+        g["uids"].append(it.get("uid") or raw_summary)
+
+    cookidoo_summaries: list[str] = []
+    cookidoo_to_complete: list[str] = []
+    for key, g in cookidoo_groups.items():
+        qty_str = aggregate_qtys(g["qtys"])
+        final = f"{g['name']} ({qty_str})" if qty_str else g["name"]
+        cookidoo_summaries.append(final)
+        cookidoo_to_complete.extend(g["uids"])
+
+    # Phase 2: Mit offenen Keep-Items mergen. Dedup vergleicht Namen ohne
+    # Klammer-Zusatz, damit Cookidoo "Zwiebeln (70 g)" das Keep-"Zwiebeln" ersetzt.
     seen: set[str] = set()
     combined: list[str] = []
-    cookidoo_to_complete: list[str] = []
 
     def _push(summary: str) -> None:
         s = summary.strip()
         if not s:
             return
-        key = s.lower()
+        key = normalize_for_dedup(s)
         if key in seen:
             return
         seen.add(key)
         combined.append(s)
 
-    for it in cookidoo_items:
-        if not _is_open(it):
-            continue
-        summary = (it.get("summary") or "").strip()
-        if not summary:
-            continue
-        cookidoo_to_complete.append(it.get("uid") or summary)
-        _push(summary)
+    for s in cookidoo_summaries:
+        _push(s)
     for it in keep_items:
         if _is_open(it):
             _push(it.get("summary") or "")

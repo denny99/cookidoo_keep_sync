@@ -234,6 +234,29 @@ PRs welcome — especially for:
 - More keyword mappings (please tag with region / store in the PR description)
 - Translations
 
+### Development
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements-dev.txt
+pytest tests/ -v
+```
+
+### Releasing
+
+Versions are managed automatically by [python-semantic-release](https://python-semantic-release.readthedocs.io/) on every push to `main`. Use [Conventional Commits](https://www.conventionalcommits.org/) to control the version bump:
+
+| Prefix | Effect |
+|--------|--------|
+| `feat: …` | minor bump (new feature) |
+| `fix: …` | patch bump (bug fix) |
+| `perf: …` | patch bump |
+| `docs:` / `chore:` / `refactor:` / `test:` / `ci:` | no version bump |
+| `BREAKING CHANGE:` in body | major bump |
+
+The CI runs `pytest` first; only when tests pass will a release be created.
+
 ## License
 
 MIT — see [LICENSE](LICENSE)
