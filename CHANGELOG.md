@@ -1,6 +1,38 @@
 # CHANGELOG
 
 
+## v0.4.0 (2026-04-26)
+
+### Continuous Integration
+
+- Bump checkout and setup-python to Node 24-compatible versions
+  ([`35cd43d`](https://github.com/denny99/cookidoo_keep_sync/commit/35cd43d9de1c15f647958872f4635393ec6ccf61))
+
+### Features
+
+- Smarter classification + editable learned cache
+  ([`87b90bf`](https://github.com/denny99/cookidoo_keep_sync/commit/87b90bf0bd637bb36ea41fe53d27d0431eb1be46))
+
+Two improvements that together remove the need for hand-crafting tons of keyword specifiers like
+  'edelsüß = Gewürze':
+
+1. Items containing a comma (Cookidoo's variant syntax, e.g. "Paprika, edelsüß") now skip the
+  keyword match entirely and go directly to the LLM. Substring matching is too primitive to handle
+  these — "paprika" would always win, regardless of qualifier. Once the LLM classifies them, they
+  are cached and resolved instantly on subsequent syncs.
+
+2. The learned cache is now editable through the integration's options flow (Configure → Learned
+  mappings). Manual entries override the LLM since the cache is checked before any classifier runs.
+
+Also: classification now runs on the clean item name (without the appended " (qty)") so cache keys
+  stay stable when only the quantity changes between syncs.
+
+Tests for both behaviors added; classifier import made lazy so the pure functions are testable
+  without HA installed.
+
+Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
+
+
 ## v0.3.0 (2026-04-26)
 
 ### Bug Fixes
