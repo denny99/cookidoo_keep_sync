@@ -176,4 +176,3 @@ class CookidooKeepOptionsFlow(OptionsFlow):
             }
         )
         return self.async_show_form(step_id="entities", data_schema=schema)
-

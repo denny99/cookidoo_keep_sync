@@ -14,7 +14,12 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.storage import Store
 
-from .const import CATEGORIES_ENTITY_NAME, DEFAULT_CATEGORIES, DOMAIN
+from .const import (
+    CATEGORIES_ENTITY_NAME,
+    CATEGORIES_TRANSLATION_KEY,
+    DEFAULT_CATEGORIES,
+    DOMAIN,
+)
 
 STORAGE_VERSION = 1
 
@@ -47,6 +52,7 @@ class CategoriesTodoEntity(TodoListEntity):
 
     _attr_has_entity_name = True
     _attr_name = CATEGORIES_ENTITY_NAME
+    _attr_translation_key = CATEGORIES_TRANSLATION_KEY
     _attr_should_poll = False
     _attr_supported_features = (
         TodoListEntityFeature.CREATE_TODO_ITEM

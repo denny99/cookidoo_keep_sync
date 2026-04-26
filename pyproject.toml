@@ -4,6 +4,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cookidoo_keep_sync"
+# Placeholder — die echte Version pflegt python-semantic-release in
+# custom_components/cookidoo_keep_sync/manifest.json. Dieses pyproject.toml
+# existiert nur für Tooling (pytest, semantic-release config), nicht als
+# PyPI-Package.
 version = "0.0.0"
 description = "Home Assistant integration: sync Cookidoo shopping list to Google Keep, sorted by personal supermarket order."
 requires-python = ">=3.12"

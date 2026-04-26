@@ -45,6 +45,13 @@
       }
     }
   },
+  "entity": {
+    "todo": {
+      "categories": {
+        "name": "Cookidoo Keep categories"
+      }
+    }
+  },
   "services": {
     "sync": {
       "name": "Sync Cookidoo → Keep",

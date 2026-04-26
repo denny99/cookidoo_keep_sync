@@ -134,8 +134,18 @@ def _is_open(item: dict) -> bool:
     return status in ("", STATUS_OPEN)
 
 
+def _is_keep_aligned(current: list[str], desired: list[str]) -> bool:
+    """True wenn die offenen Keep-Items in genau dieser Reihenfolge bereits
+    so dastehen, wie wir sie schreiben würden (case-insensitiv)."""
+    return [s.lower() for s in current] == [s.lower() for s in desired]
+
+
 async def async_run_sync(hass: HomeAssistant, entry_id: str) -> dict:
     """Mergt Cookidoo + offene Keep-Items, klassifiziert, schreibt sortiert."""
+    if entry_id not in hass.data.get(DOMAIN, {}):
+        raise HomeAssistantError(
+            f"cookidoo_keep_sync: kein aktiver Entry mit ID {entry_id!r}"
+        )
     data = hass.data[DOMAIN][entry_id]
     options = data["options"]
 
@@ -253,9 +263,7 @@ async def async_run_sync(hass: HomeAssistant, entry_id: str) -> dict:
         for it in keep_items
         if _is_open(it) and it.get("summary")
     ]
-    keep_aligned = [s.lower() for s in current_open_keep] == [
-        s.lower() for s in desired_summaries
-    ]
+    keep_aligned = _is_keep_aligned(current_open_keep, desired_summaries)
     nothing_to_do = keep_aligned and not cookidoo_to_complete
 
     added: list[tuple[str, str]] = []

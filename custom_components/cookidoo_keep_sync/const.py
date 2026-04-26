@@ -10,7 +10,8 @@ CONF_CATEGORIES = "categories"  # nur Fallback wenn keine Entity verfügbar
 CONF_LEARNED = "learned"
 CONF_USE_LLM = "use_llm"
 
-CATEGORIES_ENTITY_NAME = "Cookidoo Keep Kategorien"
+CATEGORIES_ENTITY_NAME = "Categories"  # Wird per translation_key lokalisiert
+CATEGORIES_TRANSLATION_KEY = "categories"
 
 SERVICE_SYNC = "sync"
 SERVICE_RESET_LEARNED = "reset_learned"
