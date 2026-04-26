@@ -262,22 +262,21 @@ async def async_run_sync(hass: HomeAssistant, entry_id: str) -> dict:
     if nothing_to_do:
         _LOGGER.info("Cookidoo→Keep Sync: nichts zu tun (Liste bereits aktuell)")
     else:
-        # Phase 5a: Keep-Deletes (nur wenn Reihenfolge falsch) + Cookidoo-Completes
-        # parallel — beides reihenfolge-unabhängig.
-        delete_tasks = (
-            [async_remove_item(hass, keep_entity, s) for s in current_open_keep]
-            if not keep_aligned
-            else []
-        )
-        complete_tasks = [
-            async_complete_item(hass, cookidoo_entity, ref)
-            for ref in cookidoo_to_complete
-        ]
-        if delete_tasks or complete_tasks:
-            await asyncio.gather(*delete_tasks, *complete_tasks)
+        # Phase 5a: Keep-Deletes parallel (gleiche Liste, unterschiedliche Items —
+        # die Keep-Sync-Integration verträgt parallele remove_item-Calls).
+        if not keep_aligned and current_open_keep:
+            await asyncio.gather(
+                *[async_remove_item(hass, keep_entity, s) for s in current_open_keep]
+            )
+
+        # Phase 5b: Cookidoo-Completes sequenziell. Parallele update_item-Calls
+        # auf miaucl/ha-cookidoo verlieren Updates wenn sie gleichzeitig laufen
+        # (vermutlich Race auf dem Cookidoo-API-Client).
+        for ref in cookidoo_to_complete:
+            await async_complete_item(hass, cookidoo_entity, ref)
         completed_in_cookidoo = list(cookidoo_to_complete)
 
-        # Phase 5b: Adds (Keep) sequenziell — Reihenfolge muss erhalten bleiben.
+        # Phase 5c: Adds (Keep) sequenziell — Reihenfolge muss erhalten bleiben.
         if not keep_aligned:
             for _, category, original in classified:
                 await async_add_item(hass, keep_entity, original)
