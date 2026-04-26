@@ -35,67 +35,9 @@ DEFAULT_CATEGORIES: list[str] = [
     "Sonstiges",
 ]
 
-# keyword (lowercase substring) -> category name
-DEFAULT_KEYWORDS: dict[str, str] = {
-    # Obst/Gemüse
-    "apfel": "Obst/Gemüse", "äpfel": "Obst/Gemüse", "banane": "Obst/Gemüse",
-    "salat": "Obst/Gemüse", "gurke": "Obst/Gemüse", "paprika": "Obst/Gemüse",
-    "möhre": "Obst/Gemüse", "karotte": "Obst/Gemüse", "brokkoli": "Obst/Gemüse",
-    "zucchini": "Obst/Gemüse", "spinat": "Obst/Gemüse", "pilz": "Obst/Gemüse",
-    "champignon": "Obst/Gemüse", "lauch": "Obst/Gemüse", "sellerie": "Obst/Gemüse",
-    "kohl": "Obst/Gemüse", "blumenkohl": "Obst/Gemüse", "kürbis": "Obst/Gemüse",
-    "beere": "Obst/Gemüse", "trauben": "Obst/Gemüse", "zitrone": "Obst/Gemüse",
-    "limette": "Obst/Gemüse", "orange": "Obst/Gemüse", "avocado": "Obst/Gemüse",
-    "ingwer": "Obst/Gemüse", "knoblauch": "Obst/Gemüse", "kräuter": "Obst/Gemüse",
-    "petersilie": "Obst/Gemüse", "basilikum": "Obst/Gemüse",
-    # Kartoffel/Zwiebel
-    "kartoffel": "Kartoffel/Zwiebel", "zwiebel": "Kartoffel/Zwiebel",
-    "schalotte": "Kartoffel/Zwiebel",
-    # Brot/Eier/Frischware
-    "brot": "Brot/Eier/Frischware", "brötchen": "Brot/Eier/Frischware",
-    "eier": "Brot/Eier/Frischware",
-    "spätzle": "Brot/Eier/Frischware", "gnocchi": "Brot/Eier/Frischware",
-    "teig": "Brot/Eier/Frischware", "tortilla": "Brot/Eier/Frischware",
-    "wraps": "Brot/Eier/Frischware", "tofu": "Brot/Eier/Frischware",
-    # Wurst
-    "wurst": "Wurst", "salami": "Wurst", "schinken": "Wurst", "speck": "Wurst",
-    "aufschnitt": "Wurst",
-    # Fleisch
-    "hack": "Fleisch", "rind": "Fleisch", "schwein": "Fleisch",
-    "hähnchen": "Fleisch", "huhn": "Fleisch", "pute": "Fleisch",
-    "steak": "Fleisch", "geschnetzeltes": "Fleisch", "lachs": "Fleisch",
-    "fisch": "Fleisch", "garnelen": "Fleisch",
-    # Milch
-    "milch": "Milch/Vegane Sahne", "sahne": "Milch/Vegane Sahne",
-    "hafermilch": "Milch/Vegane Sahne", "sojamilch": "Milch/Vegane Sahne",
-    # Käse/Butter
-    "käse": "Käse/Butter", "butter": "Käse/Butter", "margarine": "Käse/Butter",
-    "frischkäse": "Käse/Butter", "feta": "Käse/Butter", "mozzarella": "Käse/Butter",
-    "parmesan": "Käse/Butter", "gouda": "Käse/Butter",
-    # Müsli
-    "müsli": "Müsli", "haferflocken": "Müsli", "cornflakes": "Müsli",
-    "porridge": "Müsli",
-    # Nudeln/Backwaren
-    "nudel": "Nudeln und Backwaren", "spaghetti": "Nudeln und Backwaren",
-    "penne": "Nudeln und Backwaren", "reis": "Nudeln und Backwaren",
-    "mehl": "Nudeln und Backwaren", "zucker": "Nudeln und Backwaren",
-    "backpulver": "Nudeln und Backwaren", "hefe": "Nudeln und Backwaren",
-    "linsen": "Nudeln und Backwaren", "bohnen": "Nudeln und Backwaren",
-    "kichererbsen": "Nudeln und Backwaren",
-    # Joghurt
-    "joghurt": "Joghurt", "jogurt": "Joghurt", "quark": "Joghurt",
-    "skyr": "Joghurt", "pudding": "Joghurt",
-    # Tomaten Sachen
-    "passierte tomaten": "Tomaten Sachen", "tomatenmark": "Tomaten Sachen",
-    "dosentomaten": "Tomaten Sachen", "tomatensauce": "Tomaten Sachen",
-    "tomatensoße": "Tomaten Sachen", "ketchup": "Tomaten Sachen",
-    # Asia
-    "sojasauce": "Asia", "sojasoße": "Asia", "kokosmilch": "Asia",
-    "currypaste": "Asia", "miso": "Asia", "wok": "Asia", "sushi": "Asia",
-    "nori": "Asia", "sesam": "Asia",
-    # Saft
-    "saft": "Saft", "apfelschorle": "Saft",
-    # Getränke
-    "wasser": "Getränke", "bier": "Getränke", "wein": "Getränke",
-    "cola": "Getränke", "limonade": "Getränke", "sprudel": "Getränke",
-}
+# Keine Default-Keywords mehr: würden auf hartkodierte Kategoriennamen zeigen,
+# die der User aber frei umbenennen kann. Erster Sync klassifiziert per LLM,
+# alle Folgesyncs nutzen den persistenten learned-Cache.
+# User kann im Options-Flow eigene Keywords pflegen — dann passend zu seinen
+# eigenen Kategoriennamen.
+DEFAULT_KEYWORDS: dict[str, str] = {}
