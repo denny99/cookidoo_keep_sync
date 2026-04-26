@@ -1,6 +1,23 @@
 # CHANGELOG
 
 
+## v0.4.1 (2026-04-26)
+
+### Bug Fixes
+
+- Serialize cookidoo completes to avoid lost updates
+  ([`8247164`](https://github.com/denny99/cookidoo_keep_sync/commit/8247164fc7aa27eca5a48b1e78ae06b8b9d26500))
+
+The Cookidoo integration (miaucl/ha-cookidoo) loses ~90% of todo.update_item calls when they fire in
+  parallel — a race somewhere on its API client. Switching the completes to sequential while keeping
+  the keep-deletes parallel restores reliability.
+
+Net cost: a few extra hundreds of milliseconds for the cookidoo completes phase, which is
+  acceptable.
+
+Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
+
+
 ## v0.4.0 (2026-04-26)
 
 ### Continuous Integration
