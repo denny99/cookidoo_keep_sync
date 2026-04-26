@@ -84,25 +84,25 @@ async def async_add_item(
 
 
 async def async_complete_item(
-    hass: HomeAssistant, entity_id: str, summary: str
+    hass: HomeAssistant, entity_id: str, item_ref: str
 ) -> None:
-    """Markiert ein Item als erledigt. Manche Integrationen verweigern das (read-only) –
-    Fehler werden geloggt, aber nicht propagiert."""
+    """Markiert ein Item als erledigt. `item_ref` darf UID oder Summary sein —
+    manche Integrationen finden das Item nur per UID. Fehler werden nur geloggt."""
     try:
         await hass.services.async_call(
             "todo",
             "update_item",
             {
                 "entity_id": entity_id,
-                "item": summary,
+                "item": item_ref,
                 "status": "completed",
             },
             blocking=True,
         )
     except Exception as err:  # noqa: BLE001
-        _LOGGER.debug(
-            "Konnte '%s' in %s nicht abhaken (read-only?): %s",
-            summary, entity_id, err,
+        _LOGGER.warning(
+            "Konnte Item '%s' in %s nicht abhaken: %s",
+            item_ref, entity_id, err,
         )
 
 
@@ -150,10 +150,12 @@ async def async_run_sync(hass: HomeAssistant, entry_id: str) -> dict:
     keep_items = await async_get_todo_items(hass, keep_entity)
 
     # Offene Items aus beiden Quellen sammeln, Reihenfolge erhalten, dedupen.
-    # cookidoo_originals merken, um sie nach erfolgreichem Kopieren abzuhaken.
+    # cookidoo_to_complete merkt sich UID (bevorzugt) oder Summary jedes offenen
+    # Cookidoo-Items, damit wir sie nach dem Sync abhaken können — auch wenn das
+    # Item in Keep schon existiert (Duplikat) und gar nicht neu reinkopiert wird.
     seen: set[str] = set()
     combined: list[str] = []
-    cookidoo_originals: dict[str, str] = {}  # lower -> original-summary in Cookidoo
+    cookidoo_to_complete: list[str] = []
 
     def _push(summary: str) -> None:
         s = summary.strip()
@@ -169,9 +171,10 @@ async def async_run_sync(hass: HomeAssistant, entry_id: str) -> dict:
         if not _is_open(it):
             continue
         summary = (it.get("summary") or "").strip()
-        if summary:
-            cookidoo_originals[summary.lower()] = summary
-            _push(summary)
+        if not summary:
+            continue
+        cookidoo_to_complete.append(it.get("uid") or summary)
+        _push(summary)
     for it in keep_items:
         if _is_open(it):
             _push(it.get("summary") or "")
@@ -223,7 +226,7 @@ async def async_run_sync(hass: HomeAssistant, entry_id: str) -> dict:
     keep_aligned = [s.lower() for s in current_open_keep] == [
         s.lower() for s in desired_summaries
     ]
-    nothing_to_do = keep_aligned and not cookidoo_originals
+    nothing_to_do = keep_aligned and not cookidoo_to_complete
 
     added: list[tuple[str, str]] = []
     completed_in_cookidoo: list[str] = []
@@ -239,12 +242,12 @@ async def async_run_sync(hass: HomeAssistant, entry_id: str) -> dict:
             else []
         )
         complete_tasks = [
-            async_complete_item(hass, cookidoo_entity, s)
-            for s in cookidoo_originals.values()
+            async_complete_item(hass, cookidoo_entity, ref)
+            for ref in cookidoo_to_complete
         ]
         if delete_tasks or complete_tasks:
             await asyncio.gather(*delete_tasks, *complete_tasks)
-        completed_in_cookidoo = list(cookidoo_originals.values())
+        completed_in_cookidoo = list(cookidoo_to_complete)
 
         # Phase 5b: Adds (Keep) sequenziell — Reihenfolge muss erhalten bleiben.
         if not keep_aligned:
