@@ -1,47 +1,49 @@
 # Cookidoo → Google Keep Sync
 
-Eine Home-Assistant Custom Integration, die deine **Cookidoo-Einkaufsliste** in eine **Google-Keep-Liste** synchronisiert und die Items dabei nach deiner persönlichen **Supermarkt-Reihenfolge** sortiert. Unbekannte Artikel werden über deinen konfigurierten **Conversation-Agent** (z.B. Claude) in einem einzigen Bulk-Call klassifiziert und für die Zukunft gelernt.
+> ⚠️ **AI generated only** — This integration was written entirely by an AI assistant (Claude). It has not been manually reviewed line-by-line or extensively tested in the wild. Use at your own risk, expect rough edges, and please open issues / PRs if you hit problems.
 
-## Warum?
+A Home Assistant custom integration that synchronizes your **Cookidoo shopping list** to a **Google Keep list**, sorting items by your personal **supermarket category order**. Unknown items are classified by your configured **conversation agent** (e.g. Claude) in a single bulk call and learned for future syncs.
 
-Cookidoo schreibt beim Übernehmen eines Rezepts brav alle Zutaten in seine Einkaufsliste — aber:
+## Why?
 
-- die Cookidoo-Liste ist **read-only und nicht sortierbar**
-- die Reihenfolge ist die Reihenfolge, in der das Rezept Zutaten erwähnt — nicht die Reihenfolge, in der sie im Markt liegen
+When you import a recipe in Cookidoo, all ingredients land in its shopping list — but:
 
-Diese Integration löst beides: sie kopiert die Items in eine vollwertige Google-Keep-Liste und sortiert sie so, wie du im Laden läufst.
+- the Cookidoo list is **read-only and not sortable**
+- the order is whatever order the recipe mentions ingredients in — not the order you walk through the store
+
+This integration solves both: it copies the items into a fully editable Google Keep list and sorts them in the order you actually shop.
 
 ## Features
 
-- **Cookidoo → Keep merge & sort**: alle offenen Items aus Cookidoo + alle Items, die du selbst manuell in Keep aufgeschrieben hast, werden zusammengeführt und gemeinsam sortiert
-- **Keine Doppel-Imports**: nach dem Kopieren wird das Cookidoo-Item dort als erledigt markiert, sodass es beim nächsten Sync nicht erneut auftaucht (sofern die Cookidoo-Integration `update_item` unterstützt)
-- **Bereits abgehakte Items werden ignoriert** (in beiden Listen)
-- **Sortierung nach individueller Markt-Reihenfolge** (z.B. Obst/Gemüse → Wurst → Käse → Getränke)
-- **Keyword-basierte Klassifikation** (offline, kostenlos, ~90% Trefferquote)
-- **Bulk-LLM-Fallback** für unbekannte Items: ein einziger Call an Claude/OpenAI/Ollama klassifiziert alle Restartikel auf einmal — strukturiertes `[N] Kategorie`-Format wird per Regex geparst
-- **Auto-lernen**: jedes vom LLM klassifizierte Item wird gespeichert und beim nächsten Sync per Keyword-Match aufgelöst — der LLM wird nur für wirklich neue Items befragt
-- **Native HA Todo-Entity für die Kategorien-Reihenfolge**: die Integration legt automatisch eine Liste `todo.cookidoo_keep_kategorien` an, deren **Reihenfolge per Drag & Drop in der HA-UI änderbar** ist
-- Optional: Override-Todo-Liste, falls du die Kategorien woanders pflegen willst (z.B. eine Keep-Liste, die du mit deinem Partner teilst)
-- Service `cookidoo_keep_sync.sync` für Buttons, Automationen oder Sprachbefehle
+- **Cookidoo → Keep merge & sort**: all open items from Cookidoo + everything you manually added in Keep are merged and sorted together
+- **No double-imports**: after copying, the Cookidoo item is marked as completed there so it doesn't show up again on the next sync (assuming the Cookidoo integration supports `update_item`)
+- **Already-checked items are ignored** in both lists
+- **Sort by personal supermarket order** (e.g. fruit/veg → meat → cheese → drinks)
+- **Keyword-based classification** (offline, free, ~90% hit rate)
+- **Bulk LLM fallback** for unknown items: a single call to Claude / OpenAI / Ollama classifies all leftover items at once — structured `[N] Category` output is parsed via regex
+- **Auto-learning**: every LLM-classified item is persisted and resolved by keyword match on the next sync — the LLM is only consulted for genuinely new items
+- **Native HA Todo entity for the category order**: the integration auto-creates `todo.cookidoo_keep_kategorien` whose **order can be changed by drag & drop in the HA UI**
+- Optional: override todo list, in case you want to maintain categories somewhere else (e.g. a Keep list shared with your partner)
+- Service `cookidoo_keep_sync.sync` for buttons, automations, or voice commands
 
-## Voraussetzungen
+## Requirements
 
-- Home Assistant ≥ 2024.6 (wegen Todo-Platform mit Reorder)
-- Eine **Cookidoo-Integration**, die eine `todo`-Entity exposed (z.B. [miaucl/ha-cookidoo](https://github.com/miaucl/ha-cookidoo))
-- Eine **Google-Keep-Integration**, die eine `todo`-Entity exposed (z.B. [watkins-matt/home-assistant-google-keep-sync](https://github.com/watkins-matt/home-assistant-google-keep-sync))
-- *(Optional, empfohlen)* eine **Conversation-Integration**, z.B. die offizielle Anthropic-Integration (Claude), OpenAI Conversation, Ollama oder Google Generative AI
+- Home Assistant ≥ 2024.6 (for the todo platform with reorder support)
+- A **Cookidoo integration** that exposes a `todo` entity (e.g. [miaucl/ha-cookidoo](https://github.com/miaucl/ha-cookidoo))
+- A **Google Keep integration** that exposes a `todo` entity (e.g. [watkins-matt/home-assistant-google-keep-sync](https://github.com/watkins-matt/home-assistant-google-keep-sync))
+- *(Optional, recommended)* a **conversation integration**, e.g. the official Anthropic integration (Claude), OpenAI Conversation, Ollama, or Google Generative AI
 
 ## Installation
 
-### Via HACS (empfohlen)
+### Via HACS (recommended)
 
-1. HACS → **Integrationen** → Drei-Punkte-Menü → **Benutzerdefinierte Repositories**
+1. HACS → **Integrations** → three-dot menu → **Custom repositories**
 2. Repository: `https://github.com/denny99/cookidoo_keep_sync`
-3. Kategorie: `Integration`
-4. Hinzufügen → in der HACS-Liste **Cookidoo → Google Keep Sync** suchen → installieren
-5. Home Assistant neu starten
+3. Category: `Integration`
+4. Add → search for **Cookidoo → Google Keep Sync** → install
+5. Restart Home Assistant
 
-### Manuell
+### Manual
 
 ```bash
 cd /config/custom_components
@@ -50,40 +52,40 @@ mv tmp/custom_components/cookidoo_keep_sync .
 rm -rf tmp
 ```
 
-Danach Home Assistant neu starten.
+Then restart Home Assistant.
 
 ## Setup
 
-1. **Einstellungen → Geräte & Dienste → Integration hinzufügen → "Cookidoo → Google Keep Sync"**
-2. Felder ausfüllen:
-   - **Cookidoo Einkaufsliste (Quelle)**: z.B. `todo.cookidoo_einkaufsliste`
-   - **Google Keep Liste (Ziel)**: z.B. `todo.google_keep_einkaufen`
-   - **Conversation Agent** *(optional)*: z.B. `conversation.claude`
-   - **LLM-Fallback aktivieren**: empfohlen ✅
-3. Nach Bestätigung wird automatisch die Todo-Liste **`todo.cookidoo_keep_kategorien`** mit Default-Kategorien angelegt.
+1. **Settings → Devices & Services → Add Integration → "Cookidoo → Google Keep Sync"**
+2. Fill in the fields:
+   - **Cookidoo shopping list (source)**: e.g. `todo.cookidoo_einkaufsliste`
+   - **Google Keep list (target)**: e.g. `todo.google_keep_einkaufen`
+   - **Conversation agent** *(optional)*: e.g. `conversation.claude`
+   - **Enable LLM fallback**: recommended ✅
+3. After confirming, the todo list **`todo.cookidoo_keep_kategorien`** is auto-created with default categories.
 
-### ⚠️ Wichtig: Kategorien-Reihenfolge anpassen
+### ⚠️ Important: adjust the category order
 
-Die mitgelieferten Default-Kategorien (z.B. „Obst/Gemüse → Kartoffel/Zwiebel → … → Getränke") sind die Reihenfolge eines konkreten Rewe-Marktes — **die wirst du fast sicher anpassen wollen**. Mach das so:
+The bundled default categories (e.g. "fruit/veg → potato/onion → … → drinks") match a specific Rewe store — **you'll almost certainly want to adjust them**. Here's how:
 
-1. **Übersicht → Todo → `Cookidoo Keep Kategorien`** öffnen
-2. Items per Drag & Drop in die Reihenfolge bringen, in der du tatsächlich durch deinen Markt läufst
-3. Items hinzufügen / entfernen wie gewohnt
-4. Beim nächsten Sync gewinnt diese Reihenfolge
+1. **Overview → Todo → `Cookidoo Keep Kategorien`**
+2. Drag & drop items into the order you actually walk through your store
+3. Add / remove items as you would for any todo list
+4. The next sync respects the new order
 
-Du kannst diese Liste auch in Google Keep oder anderen Todo-Apps editieren, falls du deine Keep-Sync-Integration entsprechend konfiguriert hast — die Reihenfolge wird übernommen.
+You can also edit this list in Google Keep or other todo apps if you've configured your Keep-sync integration accordingly — the order is preserved.
 
-## Wie starte ich das Ding?
+## How do I trigger it?
 
-Die Integration legt **keinen automatischen Trigger** an — du entscheidest, wann synchronisiert werden soll. Drei empfohlene Wege:
+The integration **doesn't add an automatic trigger** — you decide when a sync runs. Three recommended ways:
 
-### 1. Dashboard-Button (am einfachsten, „auf Knopfdruck")
+### 1. Dashboard button (simplest, "on demand")
 
-Füge eine Button-Card in dein Dashboard ein:
+Add a button card to your dashboard:
 
 ```yaml
 type: button
-name: Einkauf sortieren
+name: Sort shopping list
 icon: mdi:cart-arrow-right
 show_state: false
 tap_action:
@@ -91,32 +93,32 @@ tap_action:
   perform_action: cookidoo_keep_sync.sync
 ```
 
-Tippst du auf den Button: Sync läuft. Ideal direkt vor dem Einkaufen.
+Tap the button: sync runs. Ideal right before going shopping.
 
-### 2. Automation: bei Änderung in Cookidoo automatisch syncen
+### 2. Automation: sync on Cookidoo change
 
-Sobald Cookidoo neue Items in die Einkaufsliste schreibt (z.B. wenn ihr ein Rezept aufnehmt), läuft der Sync von selbst:
+When Cookidoo writes new items into the shopping list (e.g. when a recipe is imported), the sync runs by itself:
 
 ```yaml
 alias: "Cookidoo→Keep auto-sync"
-description: Synct, sobald sich die Cookidoo-Liste ändert
+description: Syncs whenever the Cookidoo list changes
 mode: single
 max_exceeded: silent
 trigger:
   - platform: state
     entity_id: todo.cookidoo_einkaufsliste
-    # Debounce: nur triggern, wenn 30s lang nichts mehr passiert
+    # Debounce: only trigger if no further change for 30s
     for: "00:00:30"
 action:
   - service: cookidoo_keep_sync.sync
 ```
 
-(`mode: single` plus die 30-Sekunden-Pause verhindert, dass bei Schnellfeuer-Änderungen mehrere Syncs gleichzeitig laufen.)
+(`mode: single` plus the 30-second debounce prevents multiple syncs from running at once when items are added in rapid succession.)
 
-### 3. Zeitgesteuert (z.B. jeden Morgen vor dem Einkauf)
+### 3. Time-based (e.g. every morning before shopping)
 
 ```yaml
-alias: "Cookidoo→Keep täglich 09:00"
+alias: "Cookidoo→Keep daily 09:00"
 trigger:
   - platform: time
     at: "09:00:00"
@@ -124,19 +126,19 @@ action:
   - service: cookidoo_keep_sync.sync
 ```
 
-### Per Sprachbefehl (Voice Assistant / Assist)
+### Voice command (Voice Assistant / Assist)
 
-Wenn du **Claude (oder einen anderen Conversation-Agent)** als Assist-Pipeline nutzt und in der Pipeline „Service-Aufrufe erlauben" aktiviert ist:
+If you use **Claude (or another conversation agent)** as your Assist pipeline and "allow service calls" is enabled in the pipeline:
 
-> *„Sortier die Einkaufsliste"* → der Agent ruft `cookidoo_keep_sync.sync` auf.
+> *"Sort the shopping list"* → the agent calls `cookidoo_keep_sync.sync`.
 
-Du kannst das Verhalten zuverlässiger machen, indem du eine **HA-Intent-Skript-Datei** dafür anlegst — siehe HA-Doku „Intent Scripts".
+You can make this more reliable by adding an HA intent script for it — see HA docs "Intent Scripts".
 
-### Manuelles Testen
+### Manual testing
 
-**Entwicklerwerkzeuge → Aktionen → `cookidoo_keep_sync.sync` → Aktion ausführen**
+**Developer Tools → Actions → `cookidoo_keep_sync.sync` → run**
 
-Aktiviere „Antwort zurückgeben", dann siehst du sofort, was hinzugefügt, abgehakt und gelernt wurde:
+Enable "return response" and you'll immediately see what was added, completed, and learned:
 
 ```yaml
 added:
@@ -149,85 +151,95 @@ learned:
   hähnchenbrust: "Fleisch"
 ```
 
-## Wie läuft ein Sync ab?
+## How a sync works
 
 ```
-1. Lese alle OFFENEN (nicht abgehakten) Items aus
-     - der Cookidoo-Liste
-     - der Google-Keep-Liste
-   und mergen sie in eine deduplizierte Gesamtliste.
+1. Read all OPEN (unchecked) items from
+     - the Cookidoo list
+     - the Google Keep list
+   and merge them into a deduplicated combined list.
 
-2. Klassifizieren:
-     a) Keyword-Match (offline, instant)         → Obst/Gemüse
-     b) Bei Miss: Bulk-LLM-Call (ein Call für    → "[N] Kategoriename"
-        ALLE Restartikel, geparst per Regex)
-     c) Sonst: Kategorie "Sonstiges"
-   Jedes vom LLM klassifizierte Item wird persistent gelernt.
+2. Classify:
+     a) Keyword match (offline, instant)            → e.g. fruit/veg
+     b) On miss: bulk LLM call (one call for ALL    → "[N] Category"
+        leftover items, parsed by regex)
+     c) Otherwise: category "Sonstiges" (other)
+   Every LLM-classified item is persisted to the learned cache.
 
-3. Sortieren nach Kategorie-Reihenfolge aus
+3. Sort by category order from
      todo.cookidoo_keep_kategorien
-   (Drag & Drop in der HA-UI), innerhalb einer Kategorie alphabetisch.
+   (drag & drop in the HA UI), alphabetically within a category.
 
-4. Alle offenen Keep-Items löschen, sortierte Liste neu schreiben.
-   Bereits abgehakte Keep-Items bleiben unangetastet.
+4. Delete all OPEN Keep items, write the sorted list back.
+   Already-checked Keep items are left untouched.
 
-5. Cookidoo-Items, die wir kopiert haben, in Cookidoo abhaken
-   → kein Doppel-Import beim nächsten Sync.
+5. Cookidoo items we copied are marked completed in Cookidoo
+   → no double-import on the next sync.
 ```
 
-Beim nächsten Sync werden gelernte Items per Keyword-Match aufgelöst — der LLM wird nur für **wirklich neue** Items befragt. So kostet ein Sync mit 30 bekannten + 2 neuen Items genau einen Bulk-Call.
+On subsequent syncs, learned items are resolved by the keyword-cache lookup — the LLM is only consulted for **genuinely new** items. So a sync with 30 known + 2 new items costs exactly one bulk call.
 
-## Konfigurationsoptionen
+## Persistence / where is data stored?
 
-**Einstellungen → Geräte & Dienste → Cookidoo → Keep → Konfigurieren**
+| Data | Location | File |
+|------|----------|------|
+| **Learned item→category mappings** (LLM cache) | HA storage | `/config/.storage/cookidoo_keep_sync_<entry_id>_learned` |
+| **Category order** (drag-and-drop list) | HA storage | `/config/.storage/cookidoo_keep_sync_<entry_id>_categories` |
+| **Config flow data** (entity IDs, agent, keywords, options) | HA storage | `/config/.storage/core.config_entries` |
 
-| Bereich | Was du dort einstellst |
-|---------|------------------------|
-| **Listen & Agent** | Quell-/Ziel-Todo-Listen, Conversation-Agent, optionaler Override für die Kategorien-Liste |
-| **Keyword-Mappings** | Eigene `keyword = Kategorie`-Zeilen ergänzen (überschreibt Defaults) |
-| **Erweitert** | Keep-Liste vor jedem Sync komplett leeren (Vorsicht!) |
+All persisted via HA's standard `Store` helper (atomic JSON writes). Survives restarts, HA upgrades, and is included in HA backups. In Docker setups the `/config` volume is typically mounted on the host, so caches survive container recreates.
 
-Die **Kategorien-Reihenfolge** wird **nicht** hier gepflegt, sondern direkt in der Todo-Entity (siehe oben).
+## Configuration options
+
+**Settings → Devices & Services → Cookidoo → Keep → Configure**
+
+| Section | What you configure |
+|---------|--------------------|
+| **Lists & agent** | Source / target todo lists, conversation agent, optional override for the categories list |
+| **Keyword mappings** | Add your own `keyword = Category` lines (extends defaults) |
+| **Advanced** | Clear the Keep list before each sync (use with care!) |
+
+The **category order** is **not** edited here, but directly in the todo entity (see above).
 
 ## Services
 
-| Service | Beschreibung |
-|---------|--------------|
-| `cookidoo_keep_sync.sync` | Vollständiger Sync. Optional Parameter `entry_id` (bei mehreren Konfigurationen). Liefert eine `response` mit `added`, `skipped`, `learned`. |
-| `cookidoo_keep_sync.reset_learned` | Löscht den LLM-Lern-Cache (z.B. wenn du Kategorien umbenannt hast). |
+| Service | Description |
+|---------|-------------|
+| `cookidoo_keep_sync.sync` | Full sync. Optional `entry_id` parameter (when multiple configurations exist). Returns a response with `added`, `completed_in_cookidoo`, `learned`. |
+| `cookidoo_keep_sync.reset_learned` | Clears the LLM-learned cache (e.g. when you renamed categories). |
 
-## Datenschutz / Privacy
+## Privacy
 
-- Items werden nur an den **bei dir konfigurierten** Conversation-Agent gesendet.
-- Wenn du **lokales LLM** willst (z.B. Ollama), wähle entsprechend bei „Conversation Agent".
-- Keine Telemetrie, keine externen Aufrufe außer die durch den Conversation-Agent.
+- Items are sent only to **your configured** conversation agent.
+- For a **local LLM** (e.g. Ollama), pick that as the conversation agent.
+- No telemetry, no external calls beyond what your conversation agent does.
 
 ## Troubleshooting
 
-**„Keine Items in Keep nach Sync"**: Prüfe Logs (`Settings → System → Logs`, Filter `cookidoo_keep_sync`). Häufigste Ursache: falsche Entity-IDs oder Keep-Sync-Integration kann (noch) nicht schreiben.
+**"Nothing in Keep after sync"**: check the logs (`Settings → System → Logs`, filter `cookidoo_keep_sync`). Most common cause: wrong entity IDs, or the Keep-sync integration can't (yet) write back.
 
-**„LLM klassifiziert in nicht-existente Kategorie"**: Der LLM gibt manchmal einen Namen aus, der nicht exakt einer deiner Kategorien entspricht. Die Integration mappt fuzzy (Substring-Match), wenn auch das fehlschlägt landet das Item in „Sonstiges". Lösung: passende Keyword-Regel ergänzen ODER Kategoriename leicht anpassen.
+**"LLM classifies into a non-existent category"**: the LLM occasionally returns a name that doesn't exactly match one of your categories. The integration falls back to fuzzy substring matching; if that also fails, the item lands in "Sonstiges". Fix: add an appropriate keyword rule, or rename the category slightly so the LLM picks it more reliably.
 
-**„Reihenfolge in Keep stimmt nicht"**: Die Keep-Sync-Integration übernimmt die Add-Reihenfolge je nach Version unterschiedlich. Falls die Sortierung dort nicht erhalten bleibt, aktiviere im Erweitert-Tab „Keep-Liste vor jedem Sync komplett leeren".
+**"Order in Keep is wrong"**: the Keep-sync integration handles add-order differently across versions. If sort order isn't preserved, enable "Clear Keep list before each sync" in the Advanced tab.
 
-## Limitierungen
+## Limitations
 
-- Synct **nur in eine Richtung** (Cookidoo → Keep). Was du in Keep abhakst oder hinzufügst, geht nicht zurück nach Cookidoo (das ist auch gar nicht möglich, Cookidoo ist read-only).
-- Duplikat-Erkennung erfolgt per **case-insensitivem Summary-Vergleich** — geringfügig unterschiedliche Schreibweisen werden als zwei verschiedene Items behandelt.
+- Sync is **one-way** (Cookidoo → Keep). What you check off or add in Keep is not pushed back to Cookidoo (and isn't possible anyway, Cookidoo is read-only).
+- Duplicate detection is by **case-insensitive summary comparison** — slight wording differences are treated as separate items.
 
-## Beitragen
+## Contributing
 
-PRs willkommen — insbesondere für:
-- Bessere Default-Kategorien für andere Märkte
-- Weitere Keyword-Mappings (gerne als PR mit Region/Markt-Notiz)
-- Übersetzungen
+PRs welcome — especially for:
+- Better default categories for other store chains
+- More keyword mappings (please tag with region / store in the PR description)
+- Translations
 
-## Lizenz
+## License
 
-MIT — siehe [LICENSE](LICENSE)
+MIT — see [LICENSE](LICENSE)
 
 ## Credits
 
-- [miaucl/ha-cookidoo](https://github.com/miaucl/ha-cookidoo) für die Cookidoo-Integration
-- [watkins-matt/home-assistant-google-keep-sync](https://github.com/watkins-matt/home-assistant-google-keep-sync) für die Google-Keep-Integration
-- Anthropic für Claude (für „warum liegt da Spätzle nicht bei den Nudeln")
+- [miaucl/ha-cookidoo](https://github.com/miaucl/ha-cookidoo) for the Cookidoo integration
+- [watkins-matt/home-assistant-google-keep-sync](https://github.com/watkins-matt/home-assistant-google-keep-sync) for the Google Keep integration
+- Anthropic for Claude (for "why isn't Spätzle next to the noodles")
