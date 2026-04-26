@@ -31,8 +31,10 @@ from .const import (
     CONF_CONVERSATION_AGENT,
     CONF_COOKIDOO_ENTITY,
     CONF_KEEP_ENTITY,
+    CONF_LLM_EXAMPLES_PER_CATEGORY,
     CONF_USE_LLM,
     DEFAULT_CATEGORIES,
+    DEFAULT_LLM_EXAMPLES_PER_CATEGORY,
     DOMAIN,
 )
 
@@ -168,6 +170,9 @@ async def async_run_sync(hass: HomeAssistant, entry_id: str) -> SyncResult:
     agent_id: str | None = options.get(CONF_CONVERSATION_AGENT)
     categories = await _resolve_categories(hass, entry_id, options)
     use_llm: bool = options.get(CONF_USE_LLM, True) and bool(agent_id)
+    llm_examples_per_cat: int = options.get(
+        CONF_LLM_EXAMPLES_PER_CATEGORY, DEFAULT_LLM_EXAMPLES_PER_CATEGORY
+    )
 
     learned: dict[str, str] = await async_load_learned(hass, entry_id)
 
@@ -251,7 +256,12 @@ async def async_run_sync(hass: HomeAssistant, entry_id: str) -> SyncResult:
     learned_new: dict[str, str] = {}
     if unknown_items and use_llm:
         llm_result = await classify_bulk_with_llm(
-            hass, unknown_items, categories, agent_id, learned=learned
+            hass,
+            unknown_items,
+            categories,
+            agent_id,
+            learned=learned,
+            examples_per_category=llm_examples_per_cat,
         )
         for clean, category in llm_result.items():
             learned_new[clean.lower()] = category

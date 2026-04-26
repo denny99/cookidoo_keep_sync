@@ -8,6 +8,9 @@ CONF_CATEGORIES_ENTITY = "categories_entity"  # optionaler Override
 CONF_CONVERSATION_AGENT = "conversation_agent"
 CONF_CATEGORIES = "categories"  # nur Fallback wenn keine Entity verfügbar
 CONF_USE_LLM = "use_llm"
+CONF_LLM_EXAMPLES_PER_CATEGORY = "llm_examples_per_category"
+
+DEFAULT_LLM_EXAMPLES_PER_CATEGORY = 2
 
 SERVICE_SYNC = "sync"
 SERVICE_RESET_LEARNED = "reset_learned"

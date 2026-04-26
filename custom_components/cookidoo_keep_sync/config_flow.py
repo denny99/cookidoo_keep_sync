@@ -11,6 +11,9 @@ from homeassistant.helpers.selector import (
     BooleanSelector,
     EntitySelector,
     EntitySelectorConfig,
+    NumberSelector,
+    NumberSelectorConfig,
+    NumberSelectorMode,
     TextSelector,
     TextSelectorConfig,
     TextSelectorType,
@@ -21,7 +24,9 @@ from .const import (
     CONF_CONVERSATION_AGENT,
     CONF_COOKIDOO_ENTITY,
     CONF_KEEP_ENTITY,
+    CONF_LLM_EXAMPLES_PER_CATEGORY,
     CONF_USE_LLM,
+    DEFAULT_LLM_EXAMPLES_PER_CATEGORY,
     DOMAIN,
 )
 from .coordinator import async_load_learned, async_save_learned
@@ -109,8 +114,34 @@ class CookidooKeepOptionsFlow(OptionsFlow):
     ) -> FlowResult:
         return self.async_show_menu(
             step_id="init",
-            menu_options=["entities", "learned"],
+            menu_options=["entities", "learned", "advanced"],
         )
+
+    async def async_step_advanced(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        cur = self._current
+        if user_input is not None:
+            return self.async_create_entry(
+                title="",
+                data={**self._entry.options, **user_input},
+            )
+        schema = vol.Schema(
+            {
+                vol.Required(
+                    CONF_LLM_EXAMPLES_PER_CATEGORY,
+                    default=cur.get(
+                        CONF_LLM_EXAMPLES_PER_CATEGORY,
+                        DEFAULT_LLM_EXAMPLES_PER_CATEGORY,
+                    ),
+                ): NumberSelector(
+                    NumberSelectorConfig(
+                        min=0, max=10, step=1, mode=NumberSelectorMode.BOX
+                    )
+                ),
+            }
+        )
+        return self.async_show_form(step_id="advanced", data_schema=schema)
 
     async def async_step_learned(
         self, user_input: dict[str, Any] | None = None

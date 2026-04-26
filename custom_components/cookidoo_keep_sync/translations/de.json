@@ -22,7 +22,8 @@
         "title": "Cookidoo → Keep Optionen",
         "menu_options": {
           "entities": "Listen & Agent",
-          "learned": "Gelernte Mappings (Cache)"
+          "learned": "Gelernte Mappings (Cache)",
+          "advanced": "Erweitert"
         }
       },
       "entities": {
@@ -41,6 +42,13 @@
         "description": "Vom LLM gelernte (oder von dir manuell gepflegte) Item→Kategorie-Zuordnungen. Format pro Zeile: 'item-name = Kategoriename'. Manuelle Einträge überschreiben die KI: der Cache wird vor jeder Klassifikation geprüft. Aktuell: {count} Einträge.",
         "data": {
           "text": "Mappings"
+        }
+      },
+      "advanced": {
+        "title": "Erweitert",
+        "description": "Anzahl gelernter Beispiele pro Kategorie, die wir dem LLM beim Bulk-Call mitsenden, um es auf dein Schema zu kalibrieren. 0 = keine Beispiele, höher = stabilere Klassifikation aber mehr Tokens pro Call.",
+        "data": {
+          "llm_examples_per_category": "Beispiele pro Kategorie an LLM"
         }
       }
     }

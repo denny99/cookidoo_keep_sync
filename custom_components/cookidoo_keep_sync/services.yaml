@@ -7,17 +7,27 @@ sync:
   fields:
     entry_id:
       name: Config Entry ID
-      description: Optional. Lässt mehrere Konfigurationen unterscheiden.
+      description: >
+        Optional. Nur nötig, wenn du mehrere Cookidoo→Keep-Konfigurationen
+        eingerichtet hast. Bei einer einzigen Konfiguration leer lassen.
+        Die Entry-ID findest du unter Settings → Devices & Services →
+        Cookidoo → ⋮ → URL kopieren (am Ende der URL).
       required: false
+      example: "01HXXXXX..."
       selector:
         text:
 
 reset_learned:
   name: Gelernte Mappings zurücksetzen
-  description: Löscht alle vom LLM gelernten Item→Kategorie-Mappings.
+  description: >
+    Löscht alle vom LLM gelernten Item→Kategorie-Mappings. Beim nächsten
+    Sync werden alle Items erneut vom LLM klassifiziert.
   fields:
     entry_id:
       name: Config Entry ID
+      description: >
+        Optional. Nur nötig bei mehreren Konfigurationen — siehe sync.
       required: false
+      example: "01HXXXXX..."
       selector:
         text:

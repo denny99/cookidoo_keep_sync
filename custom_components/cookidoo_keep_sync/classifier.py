@@ -40,11 +40,12 @@ async def classify_bulk_with_llm(
     categories: list[str],
     agent_id: str,
     learned: dict[str, str] | None = None,
+    examples_per_category: int = 2,
 ) -> dict[str, str]:
     """Klassifiziert alle Items in EINEM LLM-Call. Wenn `learned` mitgegeben
-    wird, werden bis zu 2 Beispiele pro Kategorie als Calibration in den
-    Prompt eingebettet, damit der LLM die persönlichen Schemata des Users
-    übernimmt und nicht dauernd die gleichen Fehler macht."""
+    wird, werden bis zu `examples_per_category` Beispiele pro Kategorie als
+    Calibration in den Prompt eingebettet, damit der LLM die persönlichen
+    Schemata des Users übernimmt und nicht dauernd die gleichen Fehler macht."""
     if not items:
         return {}
 
@@ -52,8 +53,8 @@ async def classify_bulk_with_llm(
     numbered = "\n".join(f"{i + 1}. {it}" for i, it in enumerate(items))
 
     examples_block = ""
-    if learned:
-        examples = select_examples(learned, categories, max_per_category=2)
+    if learned and examples_per_category > 0:
+        examples = select_examples(learned, categories, max_per_category=examples_per_category)
         if examples:
             lines = "\n".join(f"- {item} → {cat}" for item, cat in examples)
             examples_block = (
@@ -85,7 +86,24 @@ async def classify_bulk_with_llm(
         _LOGGER.warning("Bulk-LLM-Klassifikation fehlgeschlagen: %s", err)
         return {}
 
-    text = _extract_speech(response) or ""
+    text = extract_speech(response) or ""
+    result = parse_bulk_response(text, items, categories)
+
+    if len(result) < len(items):
+        missing = [it for it in items if it not in result]
+        _LOGGER.debug(
+            "Bulk-LLM hat %d/%d Items nicht klassifiziert: %s",
+            len(missing), len(items), missing,
+        )
+
+    return result
+
+
+def parse_bulk_response(
+    text: str, items: list[str], categories: list[str]
+) -> dict[str, str]:
+    """Parst die LLM-Antwort in ein Item→Kategorie-Mapping.
+    Erwartet pro Zeile '[N] Kategoriename'. Pure Funktion für Tests."""
     cat_lower = {c.lower(): c for c in categories}
     result: dict[str, str] = {}
 
@@ -103,13 +121,6 @@ async def classify_bulk_with_llm(
         cat = _resolve_category(raw_cat, cat_lower)
         if cat:
             result[items[num - 1]] = cat
-
-    if len(result) < len(items):
-        missing = [it for it in items if it not in result]
-        _LOGGER.debug(
-            "Bulk-LLM hat %d/%d Items nicht klassifiziert: %s",
-            len(missing), len(items), missing,
-        )
 
     return result
 
@@ -144,7 +155,9 @@ def _resolve_category(raw: str, cat_lower: dict[str, str]) -> str | None:
     return None
 
 
-def _extract_speech(response: dict | None) -> str | None:
+def extract_speech(response: dict | None) -> str | None:
+    """Extrahiert den Speech-Text aus einer conversation.process-Response.
+    Pure Funktion für Tests."""
     if not response:
         return None
     try:
