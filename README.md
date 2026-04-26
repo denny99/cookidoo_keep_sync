@@ -23,7 +23,7 @@ This integration solves both: it copies the items into a fully editable Google K
 - **Bulk LLM classification** of unknown items: a single call to Claude / OpenAI / Ollama classifies all leftover items at once — structured `[N] Category` output is parsed via regex. Previously-learned examples are sent along to calibrate the LLM on your personal category names
 - **Auto-learning**: every LLM-classified item is persisted; subsequent syncs resolve it from the local cache. The LLM is only consulted for genuinely new items
 - **Editable cache**: review and override LLM classifications via Settings → Devices & Services → Cookidoo → Configure → Learned mappings
-- **Native HA Todo entity for the category order**: the integration auto-creates `todo.cookidoo_keep_kategorien` whose **order can be changed by drag & drop in the HA UI**
+- **Native HA Todo entity for the category order**: the integration auto-creates `todo.cookidoo_keep_categories` whose **order can be changed by drag & drop in the HA UI**
 - Optional: override todo list, in case you want to maintain categories somewhere else (e.g. a Keep list shared with your partner)
 - Service `cookidoo_keep_sync.sync` for buttons, automations, or voice commands
 
@@ -63,13 +63,13 @@ Then restart Home Assistant.
    - **Google Keep list (target)**: e.g. `todo.google_keep_einkaufen`
    - **Conversation agent** *(optional)*: e.g. `conversation.claude`
    - **Enable LLM fallback**: recommended ✅
-3. After confirming, the todo list **`todo.cookidoo_keep_kategorien`** is auto-created with default categories.
+3. After confirming, the todo list **`todo.cookidoo_keep_categories`** is auto-created with default categories.
 
 ### ⚠️ Important: adjust the category order
 
 The bundled default categories (e.g. "fruit/veg → potato/onion → … → drinks") match a specific Rewe store — **you'll almost certainly want to adjust them**. Here's how:
 
-1. **Overview → Todo → `Cookidoo Keep Kategorien`**
+1. **Overview → Todo → `Cookidoo Keep categories`** (or `Kategorien` in German)
 2. Drag & drop items into the order you actually walk through your store
 3. Add / remove items as you would for any todo list
 4. The next sync respects the new order
@@ -168,7 +168,7 @@ learned:
         adopts your personal category schema)
      c) Otherwise: category "Sonstiges" (other)
 
-3. Sort by category order from todo.cookidoo_keep_kategorien
+3. Sort by category order from todo.cookidoo_keep_categories
    (drag & drop in the HA UI), alphabetically within a category.
 
 4. Skip-check: if Keep already shows exactly this list in this order

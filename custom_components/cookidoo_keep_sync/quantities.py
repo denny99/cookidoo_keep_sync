@@ -75,10 +75,12 @@ _TRAILING_QTY_RE = re.compile(
 
 
 @dataclass
-class Quantity:
+class _Quantity:
+    """Geparste Mengenangabe. Privat — externe Module nutzen `aggregate`."""
     amount: float
-    unit: str  # lowercase, ohne Punkt am Ende
-    raw: str
+    unit: str       # normalisiert: lowercase, ohne Punkt
+    unit_raw: str   # Original-Casing wie eingegeben (für Display unbekannter Einheiten)
+    raw: str        # ungeparster Originaltext
 
 
 def split_name_qty(summary: str) -> tuple[str, str]:
@@ -100,7 +102,7 @@ def split_name_qty(summary: str) -> tuple[str, str]:
     return m.group("name").strip(), qty
 
 
-def parse_qty(text: str) -> Quantity | None:
+def parse_qty(text: str) -> _Quantity | None:
     if not text:
         return None
     m = _QTY_RE.match(text.strip())
@@ -111,8 +113,9 @@ def parse_qty(text: str) -> Quantity | None:
         return None
     a2 = _parse_num(m.group("n2")) if m.group("n2") else None
     amount = max(a1, a2) if a2 is not None else a1
-    unit = (m.group("unit") or "").strip(".").lower()
-    return Quantity(amount=amount, unit=unit, raw=text.strip())
+    unit_raw = (m.group("unit") or "").strip(".")
+    unit = unit_raw.lower()
+    return _Quantity(amount=amount, unit=unit, unit_raw=unit_raw, raw=text.strip())
 
 
 def aggregate(quantities: list[str]) -> str:
@@ -122,7 +125,7 @@ def aggregate(quantities: list[str]) -> str:
         return ""
 
     by_group_total: dict[str, float] = {}  # group -> total in kanonischer Einheit
-    by_count_total: dict[str, float] = {}  # normalisierter Unit-Name -> total
+    by_count_total: dict[str, float] = {}  # Display-Unit-Name -> total
     unparseable: list[str] = []
 
     for raw in qs:
@@ -136,8 +139,13 @@ def aggregate(quantities: list[str]) -> str:
             factor = _GROUPS[group][p.unit]
             by_group_total[group] = by_group_total.get(group, 0.0) + p.amount * factor
         else:
-            unit_norm = _COUNT_NORM.get(p.unit, p.unit) if p.unit else ""
-            by_count_total[unit_norm] = by_count_total.get(unit_norm, 0.0) + p.amount
+            # Bekannte Zähleinheit → kanonische Schreibweise; sonst Original-Casing
+            unit_display = (
+                _COUNT_NORM.get(p.unit) if p.unit else ""
+            ) or p.unit_raw
+            by_count_total[unit_display] = (
+                by_count_total.get(unit_display, 0.0) + p.amount
+            )
 
     parts: list[str] = []
 

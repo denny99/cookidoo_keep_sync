@@ -3,10 +3,24 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from typing import TypedDict
 
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.storage import Store
+
+
+class _CookidooGroup(TypedDict):
+    name: str
+    qtys: list[str]
+    uids: list[str]
+
+
+class SyncResult(TypedDict):
+    added: list[tuple[str, str]]
+    completed_in_cookidoo: list[str]
+    learned: dict[str, str]
+    skipped_no_changes: bool
 
 from .classifier import UNKNOWN, classify_bulk_with_llm, classify_from_cache
 from .quantities import aggregate as aggregate_qtys
@@ -140,7 +154,7 @@ def _is_keep_aligned(current: list[str], desired: list[str]) -> bool:
     return [s.lower() for s in current] == [s.lower() for s in desired]
 
 
-async def async_run_sync(hass: HomeAssistant, entry_id: str) -> dict:
+async def async_run_sync(hass: HomeAssistant, entry_id: str) -> SyncResult:
     """Mergt Cookidoo + offene Keep-Items, klassifiziert, schreibt sortiert."""
     if entry_id not in hass.data.get(DOMAIN, {}):
         raise HomeAssistantError(
@@ -163,7 +177,7 @@ async def async_run_sync(hass: HomeAssistant, entry_id: str) -> dict:
     # Phase 1: Cookidoo-Items mit gleichem Namen gruppieren und Mengen aggregieren.
     # Quantity-Quelle: bevorzugt das description-Feld der Todo-Item, sonst Trailing-Qty
     # aus dem Summary parsen (z.B. "Zwiebeln 70 g").
-    cookidoo_groups: dict[str, dict] = {}  # lower(name) -> {"name", "qtys", "uids"}
+    cookidoo_groups: dict[str, _CookidooGroup] = {}  # lower(name) -> group
     for it in cookidoo_items:
         if not _is_open(it):
             continue

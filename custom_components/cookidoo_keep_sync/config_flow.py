@@ -24,6 +24,7 @@ from .const import (
     CONF_USE_LLM,
     DOMAIN,
 )
+from .coordinator import async_load_learned, async_save_learned
 
 
 def _todo_selector() -> EntitySelector:
@@ -117,8 +118,6 @@ class CookidooKeepOptionsFlow(OptionsFlow):
         """Edit den vom LLM gelernten Cache. Manuelle Einträge überschreiben
         was die KI sich gemerkt hat, weil der Cache vor jedem Klassifikator
         gecheckt wird."""
-        from .coordinator import async_load_learned, async_save_learned
-
         if user_input is not None:
             new_learned = _text_to_mapping(user_input["text"])
             await async_save_learned(self.hass, self._entry.entry_id, new_learned)

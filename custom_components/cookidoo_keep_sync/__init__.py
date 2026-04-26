@@ -7,6 +7,7 @@ import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse
+from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import config_validation as cv
 
 from .const import (
@@ -38,37 +39,26 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
-    def _resolve_entry_id(call: ServiceCall) -> str | None:
+    def _resolve_entry_id(call: ServiceCall, service_name: str) -> str:
         """Wenn explizit angegeben → das. Sonst: nur ein Entry registriert?
-        Dann diesen. Sonst error (ambiguous bei mehreren)."""
+        Dann diesen. Sonst ServiceValidationError (ambiguous bei mehreren)."""
         explicit = call.data.get("entry_id")
         if explicit:
             return explicit
         entries = list(hass.data.get(DOMAIN, {}).keys())
         if len(entries) == 1:
             return entries[0]
-        return None
+        raise ServiceValidationError(
+            f"{DOMAIN}.{service_name} aufgerufen ohne entry_id, aber es "
+            f"existieren {len(entries)} Konfigurationen. Bitte entry_id angeben."
+        )
 
     async def _handle_sync(call: ServiceCall) -> dict:
-        target = _resolve_entry_id(call)
-        if not target:
-            _LOGGER.error(
-                "Service '%s.%s' ohne entry_id aufgerufen, aber mehrere "
-                "Konfigurationen existieren — bitte entry_id angeben.",
-                DOMAIN, SERVICE_SYNC,
-            )
-            return {}
+        target = _resolve_entry_id(call, SERVICE_SYNC)
         return await async_run_sync(hass, target)
 
     async def _handle_reset(call: ServiceCall) -> None:
-        target = _resolve_entry_id(call)
-        if not target:
-            _LOGGER.error(
-                "Service '%s.%s' ohne entry_id aufgerufen, aber mehrere "
-                "Konfigurationen existieren — bitte entry_id angeben.",
-                DOMAIN, SERVICE_RESET_LEARNED,
-            )
-            return
+        target = _resolve_entry_id(call, SERVICE_RESET_LEARNED)
         await async_save_learned(hass, target, {})
 
     if not hass.services.has_service(DOMAIN, SERVICE_SYNC):

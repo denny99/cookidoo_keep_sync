@@ -4,7 +4,6 @@ from __future__ import annotations
 import pytest
 
 from quantities import (
-    Quantity,
     aggregate,
     normalize_for_dedup,
     parse_qty,
@@ -83,6 +82,16 @@ class TestAggregateConversion:
     def test_el_tl_under_one_el_displays_in_tl(self):
         # 0.5 TL + 0.25 TL = 0.75 TL — bleibt in TL
         assert aggregate(["1/2 TL", "1/4 TL"]) == "0,75 TL"
+
+
+class TestUnknownUnitsPreserveCase:
+    def test_unknown_unit_keeps_original_casing(self):
+        # "Tütchen" ist nicht in _COUNT_NORM → Display-Casing wie eingegeben
+        assert aggregate(["1 Tütchen", "2 Tütchen"]) == "3 Tütchen"
+
+    def test_known_unit_normalizes_to_canonical_casing(self):
+        # "stück" → "Stk", egal wie eingegeben
+        assert aggregate(["1 stück", "2 STÜCK"]) == "3 Stk"
 
 
 class TestAggregateMixedGroups:
