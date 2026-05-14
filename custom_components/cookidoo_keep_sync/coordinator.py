@@ -21,6 +21,7 @@ class SyncResult(TypedDict):
     completed_in_cookidoo: list[str]
     learned: dict[str, str]
     skipped_no_changes: bool
+    recovered: bool
 
 from .classifier import UNKNOWN, classify_bulk_with_llm, classify_from_cache
 from .quantities import aggregate as aggregate_qtys
@@ -41,6 +42,7 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 
 STORAGE_VERSION = 1
+JOURNAL_STORAGE_VERSION = 1
 
 # Im todo-Component-Standard: Status NEEDS_ACTION = offen, COMPLETED = abgehakt
 STATUS_OPEN = "needs_action"
@@ -48,6 +50,10 @@ STATUS_OPEN = "needs_action"
 
 def storage_key(entry_id: str) -> str:
     return f"{DOMAIN}_{entry_id}_learned"
+
+
+def _journal_key(entry_id: str) -> str:
+    return f"{DOMAIN}_{entry_id}_sync_journal"
 
 
 async def async_load_learned(hass: HomeAssistant, entry_id: str) -> dict[str, str]:
@@ -61,6 +67,29 @@ async def async_save_learned(
 ) -> None:
     store: Store = Store(hass, STORAGE_VERSION, storage_key(entry_id))
     await store.async_save(learned)
+
+
+async def _save_journal(
+    hass: HomeAssistant, entry_id: str, desired: list[str]
+) -> None:
+    """Persist desired Keep state before destructive operations."""
+    store: Store = Store(hass, JOURNAL_STORAGE_VERSION, _journal_key(entry_id))
+    await store.async_save({"desired_summaries": desired})
+
+
+async def _load_journal(
+    hass: HomeAssistant, entry_id: str
+) -> list[str] | None:
+    store: Store = Store(hass, JOURNAL_STORAGE_VERSION, _journal_key(entry_id))
+    data = await store.async_load()
+    if data and "desired_summaries" in data:
+        return data["desired_summaries"]
+    return None
+
+
+async def _clear_journal(hass: HomeAssistant, entry_id: str) -> None:
+    store: Store = Store(hass, JOURNAL_STORAGE_VERSION, _journal_key(entry_id))
+    await store.async_save(None)
 
 
 async def async_get_todo_items(
@@ -82,23 +111,31 @@ async def async_get_todo_items(
 async def async_remove_item(
     hass: HomeAssistant, entity_id: str, summary: str
 ) -> None:
-    await hass.services.async_call(
-        "todo",
-        "remove_item",
-        {"entity_id": entity_id, "item": summary},
-        blocking=True,
-    )
+    try:
+        await hass.services.async_call(
+            "todo",
+            "remove_item",
+            {"entity_id": entity_id, "item": summary},
+            blocking=True,
+        )
+    except HomeAssistantError as err:
+        _LOGGER.warning("Konnte '%s' nicht aus %s entfernen: %s", summary, entity_id, err)
+        raise
 
 
 async def async_add_item(
     hass: HomeAssistant, entity_id: str, summary: str
 ) -> None:
-    await hass.services.async_call(
-        "todo",
-        "add_item",
-        {"entity_id": entity_id, "item": summary},
-        blocking=True,
-    )
+    try:
+        await hass.services.async_call(
+            "todo",
+            "add_item",
+            {"entity_id": entity_id, "item": summary},
+            blocking=True,
+        )
+    except HomeAssistantError as err:
+        _LOGGER.error("Konnte '%s' nicht zu %s hinzufügen: %s", summary, entity_id, err)
+        raise
 
 
 async def async_complete_item(
@@ -156,6 +193,39 @@ def _is_keep_aligned(current: list[str], desired: list[str]) -> bool:
     return [s.lower() for s in current] == [s.lower() for s in desired]
 
 
+async def _recover_from_journal(
+    hass: HomeAssistant, entry_id: str, keep_entity: str
+) -> bool:
+    """Check for an interrupted previous sync and restore the desired Keep state."""
+    journal = await _load_journal(hass, entry_id)
+    if journal is None:
+        return False
+
+    keep_items = await async_get_todo_items(hass, keep_entity)
+    current = {
+        (it.get("summary") or "").strip()
+        for it in keep_items
+        if _is_open(it) and it.get("summary")
+    }
+    missing = [s for s in journal if s not in current]
+    if not missing:
+        _LOGGER.info("Sync-Journal gefunden, aber Keep ist vollständig — Journal wird gelöscht")
+        await _clear_journal(hass, entry_id)
+        return False
+
+    _LOGGER.warning(
+        "Vorheriger Sync wurde unterbrochen! %d Items fehlen in Keep — stelle wieder her",
+        len(missing),
+    )
+    for summary in missing:
+        try:
+            await async_add_item(hass, keep_entity, summary)
+        except HomeAssistantError as err:
+            _LOGGER.error("Recovery: konnte '%s' nicht wiederherstellen: %s", summary, err)
+    await _clear_journal(hass, entry_id)
+    return True
+
+
 async def async_run_sync(hass: HomeAssistant, entry_id: str) -> SyncResult:
     """Mergt Cookidoo + offene Keep-Items, klassifiziert, schreibt sortiert."""
     if entry_id not in hass.data.get(DOMAIN, {}):
@@ -175,6 +245,8 @@ async def async_run_sync(hass: HomeAssistant, entry_id: str) -> SyncResult:
     )
 
     learned: dict[str, str] = await async_load_learned(hass, entry_id)
+
+    recovered = await _recover_from_journal(hass, entry_id, keep_entity)
 
     cookidoo_items = await async_get_todo_items(hass, cookidoo_entity)
     keep_items = await async_get_todo_items(hass, keep_entity)
@@ -296,33 +368,78 @@ async def async_run_sync(hass: HomeAssistant, entry_id: str) -> SyncResult:
     if nothing_to_do:
         _LOGGER.info("Cookidoo→Keep Sync: nichts zu tun (Liste bereits aktuell)")
     else:
-        # Phase 6a: Keep-Deletes parallel (gleiche Liste, unterschiedliche Items —
-        # die Keep-Sync-Integration verträgt parallele remove_item-Calls).
+        # Phase 6: Safe sync — journal-protected delete→add→complete.
+        #
+        # Before any destructive operation, persist the desired Keep state
+        # to a journal. If the process crashes mid-sync, the next sync
+        # detects the journal and restores missing items.
+        if not keep_aligned:
+            await _save_journal(hass, entry_id, desired_summaries)
+
+        # Phase 6a: Delete open Keep items in parallel.
+        # return_exceptions=True ensures ALL deletes are attempted even if
+        # some fail — a single network error won't abort the batch.
         if not keep_aligned and current_open_keep:
-            await asyncio.gather(
-                *[async_remove_item(hass, keep_entity, s) for s in current_open_keep]
+            results = await asyncio.gather(
+                *[async_remove_item(hass, keep_entity, s) for s in current_open_keep],
+                return_exceptions=True,
             )
+            failures = [
+                (s, r) for s, r in zip(current_open_keep, results)
+                if isinstance(r, BaseException)
+            ]
+            if failures:
+                _LOGGER.warning(
+                    "Keep-Sync: %d/%d Deletes fehlgeschlagen: %s",
+                    len(failures), len(current_open_keep),
+                    ", ".join(f"'{s}'" for s, _ in failures),
+                )
 
-        # Phase 6b: Cookidoo-Completes sequenziell. Parallele update_item-Calls
-        # auf miaucl/ha-cookidoo verlieren Updates wenn sie gleichzeitig laufen
-        # (vermutlich Race auf dem Cookidoo-API-Client).
-        for ref in cookidoo_to_complete:
-            await async_complete_item(hass, cookidoo_entity, ref)
-        completed_in_cookidoo = list(cookidoo_to_complete)
+            # Verify: re-fetch Keep and retry any items that survived.
+            # The Keep integration sometimes reports success but the item
+            # stays — a sequential retry usually clears them.
+            still_there = await async_get_todo_items(hass, keep_entity)
+            stale = [
+                (it.get("summary") or "").strip()
+                for it in still_there
+                if _is_open(it) and it.get("summary")
+            ]
+            if stale:
+                _LOGGER.warning(
+                    "Keep-Sync: %d Items überlebten paralleles Löschen, versuche erneut: %s",
+                    len(stale), ", ".join(f"'{s}'" for s in stale),
+                )
+                for s in stale:
+                    try:
+                        await async_remove_item(hass, keep_entity, s)
+                    except HomeAssistantError:
+                        _LOGGER.warning("Retry-Delete für '%s' fehlgeschlagen", s)
 
-        # Phase 6c: Adds (Keep) sequenziell — Reihenfolge muss erhalten bleiben.
+        # Phase 6b: Re-add items in sorted order (sequential for ordering).
         if not keep_aligned:
             for _, category, original in classified:
                 await async_add_item(hass, keep_entity, original)
                 added.append((category, original))
+
+        # Phase 6c: Clear journal — Keep is now in the desired state.
+        if not keep_aligned:
+            await _clear_journal(hass, entry_id)
+
+        # Phase 6d: Cookidoo-Completes LAST — only after Keep is fully updated.
+        # Sequential because parallel update_item calls on ha-cookidoo lose
+        # updates (race on the Cookidoo API client).
+        for ref in cookidoo_to_complete:
+            await async_complete_item(hass, cookidoo_entity, ref)
+        completed_in_cookidoo = list(cookidoo_to_complete)
 
     if learned_new:
         learned.update(learned_new)
         await async_save_learned(hass, entry_id, learned)
 
     _LOGGER.info(
-        "Cookidoo→Keep Sync: %d sortiert, %d in Cookidoo abgehakt, %d via LLM gelernt",
+        "Cookidoo→Keep Sync: %d sortiert, %d in Cookidoo abgehakt, %d via LLM gelernt%s",
         len(added), len(completed_in_cookidoo), len(learned_new),
+        " (nach Recovery)" if recovered else "",
     )
 
     return {
@@ -330,4 +447,5 @@ async def async_run_sync(hass: HomeAssistant, entry_id: str) -> SyncResult:
         "completed_in_cookidoo": completed_in_cookidoo,
         "learned": learned_new,
         "skipped_no_changes": nothing_to_do,
+        "recovered": recovered,
     }
