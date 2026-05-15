@@ -1,6 +1,25 @@
 # CHANGELOG
 
 
+## v2.0.1 (2026-05-15)
+
+### Bug Fixes
+
+- Crash-safe sync with journal recovery, verify+retry stale deletes
+  ([`f0adbbb`](https://github.com/denny99/cookidoo_keep_sync/commit/f0adbbb5b195fc276fff204fe195a6d6d73d0db9))
+
+The sync previously deleted ALL Keep items before re-adding them. A crash between delete and re-add
+  would permanently lose the entire shopping list.
+
+- Sync journal persists desired state before destructive ops; next sync auto-recovers missing items
+  if previous sync was interrupted. - Parallel deletes use return_exceptions=True (one failure won't
+  abort batch). - Verify+retry step after deletes catches silently surviving items. -
+  async_remove_item / async_add_item now log errors before re-raising. - Cookidoo completion moved
+  to LAST phase (after Keep is fully updated).
+
+Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+
+
 ## v2.0.0 (2026-04-26)
 
 ### Chores
