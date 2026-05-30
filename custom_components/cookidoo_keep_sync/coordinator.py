@@ -248,7 +248,14 @@ async def async_run_sync(hass: HomeAssistant, entry_id: str) -> SyncResult:
 
     recovered = await _recover_from_journal(hass, entry_id, keep_entity)
 
-    cookidoo_items = await async_get_todo_items(hass, cookidoo_entity)
+    try:
+        cookidoo_items = await async_get_todo_items(hass, cookidoo_entity)
+    except HomeAssistantError as err:
+        _LOGGER.warning(
+            "Cookidoo-Entity %s nicht erreichbar, sync läuft nur auf Keep: %s",
+            cookidoo_entity, err,
+        )
+        cookidoo_items = []
     keep_items = await async_get_todo_items(hass, keep_entity)
 
     # Phase 1: Cookidoo-Items mit gleichem Namen gruppieren und Mengen aggregieren.
@@ -428,9 +435,17 @@ async def async_run_sync(hass: HomeAssistant, entry_id: str) -> SyncResult:
         # Phase 6d: Cookidoo-Completes LAST — only after Keep is fully updated.
         # Sequential because parallel update_item calls on ha-cookidoo lose
         # updates (race on the Cookidoo API client).
-        for ref in cookidoo_to_complete:
-            await async_complete_item(hass, cookidoo_entity, ref)
-        completed_in_cookidoo = list(cookidoo_to_complete)
+        # Errors are logged per-item (async_complete_item has its own try/except).
+        if cookidoo_to_complete:
+            try:
+                for ref in cookidoo_to_complete:
+                    await async_complete_item(hass, cookidoo_entity, ref)
+                completed_in_cookidoo = list(cookidoo_to_complete)
+            except HomeAssistantError as err:
+                _LOGGER.warning(
+                    "Cookidoo-Completes übersprungen (%s nicht erreichbar): %s",
+                    cookidoo_entity, err,
+                )
 
     if learned_new:
         learned.update(learned_new)
