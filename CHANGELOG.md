@@ -1,6 +1,20 @@
 # CHANGELOG
 
 
+## v2.0.3 (2026-05-30)
+
+### Bug Fixes
+
+- Gracefully skip cookidoo when unavailable, sync keep-only
+  ([`5c98a03`](https://github.com/denny99/cookidoo_keep_sync/commit/5c98a03e017b47e8028585019325313e7980ee27))
+
+When the Cookidoo integration is broken (e.g. auth expired), the sync now logs a warning and
+  continues with Keep items only instead of crashing. Cookidoo completions are also skipped
+  gracefully.
+
+Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+
+
 ## v2.0.2 (2026-05-30)
 
 ### Bug Fixes
