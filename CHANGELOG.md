@@ -1,6 +1,20 @@
 # CHANGELOG
 
 
+## v2.0.2 (2026-05-30)
+
+### Bug Fixes
+
+- Use SupportsResponse.ONLY to avoid entity-matching error
+  ([`7b2667e`](https://github.com/denny99/cookidoo_keep_sync/commit/7b2667e1d4c558468467ab9796edd32604f15a59))
+
+HA rejects SupportsResponse.OPTIONAL when called from the UI with response data enabled but no
+  target entities — our service uses entry_id, not entity targeting. ONLY is correct since the
+  handler always returns a dict.
+
+Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+
+
 ## v2.0.1 (2026-05-15)
 
 ### Bug Fixes
