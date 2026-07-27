@@ -1,6 +1,23 @@
 # CHANGELOG
 
 
+## v2.0.4 (2026-07-27)
+
+### Bug Fixes
+
+- Coerce llm_examples_per_category to int
+  ([`bce1caa`](https://github.com/denny99/cookidoo_keep_sync/commit/bce1caa7dbc8eef673639fcbbc916ab1dc201b9c))
+
+NumberSelector persists its value as a float (2.0), so the examples slice in select_examples raised
+  "slice indices must be integers or None or have an __index__ method" for anyone who had opened the
+  Advanced options step.
+
+Coerce on read in the coordinator so existing broken configs recover without user action, and on
+  write in the options flow so newly saved values are stored as ints.
+
+Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+
+
 ## v2.0.3 (2026-05-30)
 
 ### Bug Fixes
