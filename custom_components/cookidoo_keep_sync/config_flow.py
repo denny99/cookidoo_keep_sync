@@ -122,6 +122,9 @@ class CookidooKeepOptionsFlow(OptionsFlow):
     ) -> FlowResult:
         cur = self._current
         if user_input is not None:
+            user_input[CONF_LLM_EXAMPLES_PER_CATEGORY] = int(
+                user_input[CONF_LLM_EXAMPLES_PER_CATEGORY]
+            )
             return self.async_create_entry(
                 title="",
                 data={**self._entry.options, **user_input},
